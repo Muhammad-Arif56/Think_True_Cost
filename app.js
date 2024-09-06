@@ -8,8 +8,6 @@ const purchaseRouter = require('./routes/purchaseRouter');
 const spendingHabitRouter =  require('./routes/spendingHabitRouter')
 
 
-
-
 //Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
