@@ -33,7 +33,11 @@ const userModel = mongoose.Schema({
     type: String,
     enum: ['user', 'admin'],
     default: 'user'
-}
+    },
+    activation:{
+        type: Boolean,
+        default: true
+    }
 }, {timestamps: true})
 
 module.exports = mongoose.model('User', userModel);
