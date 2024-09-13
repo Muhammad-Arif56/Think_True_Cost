@@ -141,7 +141,7 @@ const ResetPassword = async (req, res) => {
   const password = req.body.password;
   const resetOtp = await otpResetModel.findOne({
     otp: req.body.otp,
-    userId : req.body.userId
+    // userId : req.body.userId
   });
   if (!resetOtp) {
     return res.status(401).json({ message: "Invalid OTP" });
@@ -195,10 +195,7 @@ const RegisterAdmin = async (req, res) => {
       const data = await s3.send(command);
       imageUrl = `https://${params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
     }
-    if (req.body.password !== req.body.confirmpassword)
-      return res
-        .status(400)
-        .json({ code: 400, message: "Passsword Not Matched" });
+
 
     const salt = await bcrypt.genSalt(12);
     const hashpassword = await bcrypt.hash(req.body.password, salt);
