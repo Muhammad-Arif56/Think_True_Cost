@@ -4,7 +4,7 @@ const path = require('path');
 dotenv.config()
 // const userProfileModel = require('../models/profileModel');
 // const jwt = require('jsonwebtoken');
-const userModel = require('../models/userModel');
+const User = require('../models/User');
 const { S3Client } = require("@aws-sdk/client-s3");
 const multerS3 = require('multer-s3');
 const s3 = new S3Client({
@@ -27,13 +27,6 @@ const storage =   multerS3({
       const ext = path.extname(file.originalname);
       const filename = `${Date.now().toString()}${ext}`;
       cb(null, filename);
-    // key: function (req, file, cb) {
-    //   const ext = path.extname(file.originalname);
-    //   // Generate a unique filename with the desired extension
-    //   const filename = `${Date.now().toString()}${ext}`;
-    //   cb(null, filename);
-    //     cb(null,Date.now().toString() +".jpg");
-
     },
 
     limits: {
@@ -54,7 +47,7 @@ exports.upload = multer({ storage: storage });
 //updating user profile...
 exports.updateProfile = async (req, res) => {
   try {
-    const user = await userModel.findById(req.user.id);
+    const user = await User.findById(req.user.id);
           console.log("🚀 ~ exports.updateProfile= ~ user:", user)
           if (!user) {
               return res.status(404).json({ error: 'User not found' });
@@ -64,14 +57,9 @@ exports.updateProfile = async (req, res) => {
     if (req.file) {
              updatedFields.profileImage = req.file?.location
             }
-
-    // if (req.file) {
-    //   user.profileImage = req.file.location; // Use req.file.location to get the S3 file URL
-    //   updatedFields.profileImage = req.file.location; // Include profileImage in updated fields
-    // }
     console.log("🚀 ~ exports.updateProfile= ~ updatedFields:", updatedFields)
 
-    const updateUser = await userModel.findByIdAndUpdate(
+    const updateUser = await User.findByIdAndUpdate(
       req.user.id,
       { $set: updatedFields},
       { new: true }
@@ -89,48 +77,10 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-
-
-
-// //Updating User Profile.....
-// exports.updateProfile = async (req, res) => {
-//   try {
-//       const { name, picture, country} = req.body;
-      
-//       const user = await userModel.findById(req.user.id);
-//       if (!user) {
-//           return res.status(404).json({ error: 'User not found' });
-//       }
-//       if (picture) {
-//         user.picture =picture;
-//       }
-//       if (name) {
-//           user.name = name;
-//       } 
-//       if (country) {
-//           user.country = country;
-//       }
-      
-//       if (req.file) {
-//         const filePath = req.file.path;
-//         user.profileImage = filePath;
-//       }
-     
-//       await user.save();
-//       return res.json({ message: 'Profile updated successfully' });
-//   } catch (err) {
-//       console.error('Error in updateProfile:', err);
-//      return res.status(500).json({ error: 'Internal server error' });
-//   }
-// };
-
-
-
-
 //Delet Profile Photo
 exports.deletePhoto = async (req, res) => {
   try {
-      const user = await userModel.findById(req.user.id);
+      const user = await User.findById(req.user.id);
       if (!user) {
           return res.status(404).json({ message: 'User not found' });
       }

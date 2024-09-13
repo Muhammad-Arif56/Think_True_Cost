@@ -1,24 +1,37 @@
-const express = require('express');
-const { userSignUp, userLogin , forgotPassword,VerifyOTP, resetPassword, getAllUsers, getAllAdmins, getUserById , getAdminById, activateOrDeactivateUser, activateOrDeactivateAdmin} = require('../controllers/userController');
-const authorizationMiddleware = require('../middlewares/myAuth');
-const adminAccess = require('../middlewares/adminAccessMiddleware');
-const userRouter = express.Router();
+const express = require("express");
+const multer = require("multer");
+const upload = multer({ storage: multer.memoryStorage() });
+const router = express.Router();
+const {
+  Signup,
+  Login,
+  ForgotPassword,
+  VerifyOTP,
+  ResetPassword,
+  Dashboard,
+  RegisterAdmin,
+  Loginadmin,
+  AllUSers,
+  GetUserDetails,
+  DeleteUser,
+  GetAllAdmins,
+  EditProfile,
+} = require("../controllers/userController");
 
+router.post("/signup", Signup);
+router.post("/login", Login);
+router.post("/forgot-password", ForgotPassword);
+router.post("/verify-otp", VerifyOTP);
+router.post("/reset-password", ResetPassword);
 
-userRouter.post('/signup', userSignUp)
-userRouter.post('/login', userLogin)
+// Admin Routes
+router.get("/getdashboard", Dashboard);
+router.post("/registeradmin", upload.single("image"), RegisterAdmin);
+router.post("/loginadmin", Loginadmin);
+router.get("/getalluser", AllUSers);
+router.get("/getUserById/:userId", GetUserDetails);
+router.delete("/deleteuser/:userId", DeleteUser);
+router.get("/getalladmin", GetAllAdmins);
+router.put("/edittadmin/:userId", EditProfile);
 
-//admin routes
-userRouter.get('/get-all-users/admin', authorizationMiddleware, adminAccess, getAllUsers)
-userRouter.get('/get-all-admins/admin', authorizationMiddleware, adminAccess, getAllAdmins)
-userRouter.get('/get-user/admin/:userId', authorizationMiddleware, adminAccess, getUserById)
-userRouter.get('/get-admin/admin/:userId', authorizationMiddleware, adminAccess, getAdminById)
-userRouter.post('/user-activation', authorizationMiddleware, adminAccess, activateOrDeactivateUser)
-userRouter.post('/admin-activation', authorizationMiddleware, adminAccess, activateOrDeactivateAdmin)
-
-userRouter.post('/forgot-password', forgotPassword)
-userRouter.post('/verify-otp', VerifyOTP);
-userRouter.post('/reset-password', resetPassword);
-
-
-module.exports = userRouter
+module.exports = router;

@@ -1,6 +1,6 @@
 const spendingHabitModel = require('../models/spendingHabitModel');
 const habitModel = require('../models/spendingHabitModel');
-const userModel = require('../models/userModel');
+const User = require('../models/User');
 
 //__________________ Spending Habit Step  _____________________
 
@@ -8,7 +8,7 @@ exports.spendingHabit = async (req, res) => {
   try {
     const { habit, frequency, avg_cost, currentAge, retirementAge, annualReturn } = req.body;
 
-    const user = await userModel.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -133,7 +133,7 @@ exports.spendingHabit = async (req, res) => {
 exports.getAllSpendingHabits = async (req, res)=>{
   try {
     // const purchaseId = req.params.purchaseId
-    const userCheck = await userModel.findById(req.user.id)
+    const userCheck = await User.findById(req.user.id)
     console.log("🚀 ~ exports.getAllSpendingHabits= ~ req.user.id):", req.user.id)
     if(!userCheck){
       return res.status(404).json({error: "No user found by this id"})

@@ -1,6 +1,6 @@
 const purchaseModel = require("../models/purchaseModel");
 const spendingHabitModel = require("../models/spendingHabitModel");
-const userModel = require("../models/userModel");
+const User = require("../models/User");
 
 
 
@@ -11,7 +11,7 @@ exports.oneTimePurchase = async (req, res) => {
     const { item_name, purchaseAmount, currentAge, retirementAge, annualReturn } = req.body;
 
     // Check if user exists
-    const user = await userModel.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -139,7 +139,7 @@ exports.oneTimePurchase = async (req, res) => {
 //     } = req.body;
 
 //     // Check if user exists
-//     const user = await userModel.findById(req.user.id);
+//     const user = await User.findById(req.user.id);
 //     if (!user) {
 //       return res.status(404).json({ error: "User not found" });
 //     }
@@ -229,7 +229,7 @@ exports.oneTimePurchase = async (req, res) => {
 exports.getAllPurchases = async (req, res)=>{
   try {
     // const purchaseId = req.params.purchaseId
-    const userCheck = await userModel.findById(req.user.id)
+    const userCheck = await User.findById(req.user.id)
     if(!userCheck){
       return res.status(404).json({error: "No user found by this id"})
     }
