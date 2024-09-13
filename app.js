@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(bodyParser.json())
 
 //importing routes
-app.use('/auth/user', userRouter)
+app.use('/api/auth', userRouter)
 app.use('/auth/userprofile', profileRouter)
 app.use('/auth/user', purchaseRouter)
 app.use('/auth/user', spendingHabitRouter);
