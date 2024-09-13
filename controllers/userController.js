@@ -214,6 +214,7 @@ const RegisterAdmin = async (req, res) => {
       .status(200)
       .json({ code: 200, message: "Admin Registered", savedAdmin });
   } catch (error) {
+    console.log(error);
     res.status(500).json({ code: 500, message: "Error Registering Admin" });
   }
 };
