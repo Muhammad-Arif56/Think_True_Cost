@@ -6,9 +6,8 @@ const authorizationMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization.split(' ')[1];
     if (!token) return res.sendStatus(401);
-    const decoded = jwt.verify(token, SecretKey);
-    const userId = await User.findById(decoded.id);
-    // console.log("🚀 ~ authorizationMiddleware ~ user:", userId)
+    const decoded = jwt.verify(token, process.env.JWT_SEC);
+    const userId = await User.findById(decoded._id);
     if (!userId) {
       return res.status(401).json({ message: 'Unauthorized access' });
     }

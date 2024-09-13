@@ -205,7 +205,7 @@ const RegisterAdmin = async (req, res) => {
     const newAdmin = new User({
       username: req.body.username,
       email: req.body.email.toLowerCase(),
-      image: imageUrl,
+      profileImage: imageUrl,
       password: hashpassword,
       isAdmin: true,
     });

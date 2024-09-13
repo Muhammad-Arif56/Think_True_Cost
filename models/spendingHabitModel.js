@@ -67,6 +67,14 @@ const habitModel = mongoose.Schema(
       ref: "User",
       required: true,
     },
+    projectionData: [
+      {
+        year: { type: Number, required: true },
+        annualReturn: { type: Number, required: true },
+        sp500HistoricalReturn: { type: Number, required: true },
+        tenYearTreasuryReturn: { type: Number, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );
