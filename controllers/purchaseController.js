@@ -162,11 +162,11 @@ exports.oneTimePurchase = async (req, res) => {
 exports.getAllPurchases = async (req, res) => {
   try {
     // const purchaseId = req.params.purchaseId
-    const userCheck = await User.findById(req.params.id);
+    const userCheck = await User.findById(req.user.id);
     if (!userCheck) {
       return res.status(404).json({ error: "No user found by this id" });
     }
-    const all_purchases = await purchaseModel.find({ userId: req.params.id });
+    const all_purchases = await purchaseModel.find({ userId: req.user.id });
     if (!all_purchases) {
       return res.status(404).json({ error: "No purchase found by this id" });
     }
