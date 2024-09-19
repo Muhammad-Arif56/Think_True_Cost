@@ -56,6 +56,39 @@ const Signup = async (req, res) => {
       .json({ code: 500, message: "Error while Registering User" });
   }
 };
+
+const GoogleLoginOrSignup = async (req, res) => {
+  const { username, email, googleId } = req.body; // Added status here
+  try {
+    let user = await User.findOne({ googleId });
+    if (!user) {
+      // If user does not exist, create a new user
+      const checkEmail = await User.findOne({ email });
+      if (checkEmail) {
+        return res.status(400).json("Email Already Exist");
+      }
+      user = new User({
+        googleId,
+        email,
+        username,
+      });
+      await user.save();
+    }
+    const token = Jwt.sign(
+      {
+        isAdmin: user.isAdmin,
+        _id: user._id,
+      },
+      process.env.JWT_SEC,
+      { expiresIn: "3d" }
+    );
+    const { password, ...others } = user._doc;
+    res.status(200).json({ ...others, token });
+  } catch (error) {
+    res.status(400).json("Error while Google signup");
+  }
+};
+
 const Login = async (req, res) => {
   try {
     const user = await User.findOne({
@@ -64,17 +97,28 @@ const Login = async (req, res) => {
     if (!user) {
       return res.status(401).json({ code: 401, message: "User not found" });
     }
-    const comparepass = await bcrypt.compare(req.body.password, user.password);
-    if (!comparepass) {
-      return res
-        .status(401)
-        .json({ code: 401, message: "Invalid Credentials" });
+    if (user.googleId && req.body.password) {
+      return res.status(401).json({
+        code: 401,
+        message: "Email is already signed up using Google, Login with Google",
+      });
     }
-
+    // If the user has either googleId or facebookId, skip password check
+    if (!user.googleId) {
+      if (!req.body.password) {
+        return res
+          .status(401)
+          .json({ code: 401, message: "Password Required" });
+      }
+      const comparepass = bcrypt.compare(req.body.password, user.password);
+      if (!comparepass) {
+        return res
+          .status(401)
+          .json({ code: 401, message: "Invalid Credentials" });
+      }
+    }
     // Update device token
     // user.deviceToken = req.body.deviceToken;
-
-    await user.save();
     const { password, ...others } = user._doc;
     const accessToken = Jwt.sign(
       {
@@ -195,7 +239,7 @@ const RegisterAdmin = async (req, res) => {
       const data = await s3.send(command);
       imageUrl = `https://${params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
     }
-
+    
 
     const salt = await bcrypt.genSalt(12);
     const hashpassword = await bcrypt.hash(req.body.password, salt);
@@ -333,4 +377,5 @@ module.exports = {
   DeleteUser,
   GetAllAdmins,
   EditProfile,
+  GoogleLoginOrSignup,
 };

@@ -11,11 +11,19 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
     },
+    // password: {
+    //   type: String,
+    //   required: true,
+    //   minlength: 8,
+    // },
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return !this.googleId;
+      },
       minlength: 8,
     },
+    googleId: { type: String, unique: true, sparse: true },
     country: {
       type: String,
       // required: true,
