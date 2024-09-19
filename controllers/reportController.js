@@ -1,48 +1,77 @@
-const reportModel = require('../models/reportModel')
-const userModel = require('../models/userModel')
+const Report = require("../models/Report");
+const createReport = async (req, res) => {
+  const { userId, description } = req.body;
 
-//create a report and send to admin department
-const createReport = async(req, res)=>{
-    const {userId} = req.body
-    try {
-        //check user existing
-        const user = await userModel.findById(req.user.id);
-        if(!user) return res.status(404).json({message: "User not found"})
-        
-        const report = new reportModel({
-            userId: req.user.id,
-            messageReport: req.body.message
-        })
-        await report.save()
-        return res.status(201).json({message: "Report created successfully"});
-    } catch (error) {
-        console.log("Error: ", error)
-        return res.status(500).json({message: "Error creating report"})
-    }
-}
+  try {
+    const newReport = new Report({
+      userId,
+      description,
+    });
 
-//Get all reports by Admin
-const getAllReports = async (req, res) => {
-    try {
-      // Check if the user is an admin
-      if (req.user && req.user.role === 'admin') {
-      //check if the admin is activated or deactivated
-      const requestingAdmin = await userModel.findById(req.user.id);
-      if(!requestingAdmin || requestingAdmin.activation === false){
-        return res.status(403).json({message: "Access denied. Your account is deactivated."})
-      }
-        // Fetch all users and exclude the password field
-        const reports = await reportModel.findById(req.user.id);
-        return res.status(200).json(reports);
-      } else {
-        // Return forbidden if the user is not an admin
-        return res.status(403).json({ message: "Access denied. Admins only." });
-      }
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error" });
-    }
+    const savedReport = await newReport.save();
+    res.status(201).json(savedReport);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
-  
+};
+const getReports = async (req, res) => {
+  try {
+    const reports = await Report.find().populate("userId", "name email"); // Populating user data
+    res.status(200).json(reports);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+const getReportById = async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id).populate("userId", "name email");
 
-module.exports = {createReport, getAllReports}
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    res.status(200).json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+const updateReport = async (req, res) => {
+  const { description } = req.body;
+
+  try {
+    const report = await Report.findById(req.params.id);
+
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    report.description = description || report.description;
+
+    const updatedReport = await report.save();
+    res.status(200).json(updatedReport);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+const deleteReport = async (req, res) => {
+  try {
+    const report = await Report.findById(req.params.id);
+
+    if (!report) {
+      return res.status(404).json({ message: "Report not found" });
+    }
+
+    await report.remove();
+    res.status(200).json({ message: "Report removed" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  createReport,
+  getReports,
+  getReportById,
+  updateReport,
+  deleteReport,
+};

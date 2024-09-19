@@ -1,383 +1,336 @@
-const userModel = require('../models/userModel')
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const SecretKey = "thisisoursecretkey";
-const otpGenerate = require('../utils/otpGenerate.js');
-const generateRandomString = require('../utils/generateRandomString');
-const otpResetModel = require('../models/otpResetModel');
+const Jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const otpGenerate = require("../utils/otpGenerate.js");
+const generateRandomString = require("../utils/generateRandomString");
+const otpResetModel = require("../models/otpResetModel");
 const accountMail = require("../utils/sendEmail");
-
-
-
-//Signing Up User
-const userSignUp = async (req, res) => {
-  const {name, email, country, role} = req.body
+const User = require("../models/User.js");
+const {
+  S3Client,
+  DeleteObjectCommand,
+  PutObjectCommand,
+} = require("@aws-sdk/client-s3");
+// s3 create
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+const Signup = async (req, res) => {
+  const checkemail = await User.findOne({
+    email: req.body.email.toLowerCase(),
+  });
+  const salt = await bcrypt.genSalt(15);
+  const hashpassword = await bcrypt.hash(req.body.password, salt);
   try {
-      if (!name || !email || !req.body.password || !country) {
-          return res.status(400).json({message: "Please enter all credentials"})
-      }
-      // Normalize the email format
-      const trimmedEmail = email.trim();
-      const lowercaseEmail = trimmedEmail.toLowerCase();
+    const newUser = new User({
+      username: req.body.username,
+      email: req.body.email.toLowerCase(),
+      password: hashpassword,
+      country: req.body.country,
+      // deviceToken: req.body.deviceToken,
+    });
+    if (checkemail)
+      return res
+        .status(409)
+        .json({ code: 409, message: "Email Already Exists" });
+    const savedUser = await newUser.save();
+    const accessToken = Jwt.sign(
+      {
+        isAdmin: savedUser.isAdmin,
+        _id: savedUser.id,
+      },
+      process.env.JWT_SEC,
+      { expiresIn: "30d" }
+    );
+    res.status(200).json({
+      message: "User Registered",
+      user: savedUser,
+      accessToken,
+    });
+  } catch (err) {
+    res
+      .status(500)
+      .json({ code: 500, message: "Error while Registering User" });
+  }
+};
+const Login = async (req, res) => {
+  try {
+    const user = await User.findOne({
+      email: req.body.email.toLowerCase(),
+    });
+    if (!user) {
+      return res.status(401).json({ code: 401, message: "User not found" });
+    }
+    const comparepass = await bcrypt.compare(req.body.password, user.password);
+    if (!comparepass) {
+      return res
+        .status(401)
+        .json({ code: 401, message: "Invalid Credentials" });
+    }
 
-      // Regular expression to validate the email format
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|mil|int)$/;
-      if (!emailRegex.test(lowercaseEmail)) {
-          return res.status(400).json({ message: "Invalid email format" });
-      }
+    // Update device token
+    // user.deviceToken = req.body.deviceToken;
 
-     if((req.body.password).length < 8){
-      return res.status(400).json({message: "Password should be at least 8 characters"})
-     }
-  
-      //Check if the user is already signed up
-      const existingUser = await userModel.findOne({email:lowercaseEmail})
-      if (existingUser) {
-        const message = existingUser.role === 'admin' ? "Admin already exist with this email" : "User already exist with this email"
-          return res.status(400).json({message:message})
-      }
-      //Hashing the password
-      const hashPassword = await bcrypt.hash(req.body.password, 10)
-      //Creating user
-      const newUser = new userModel(
-          {
-            name:name,
-              email:lowercaseEmail, 
-              password:hashPassword,
-              country: country,
-              role: role || 'user'
-          })
-          const saveUser = await newUser.save()
-          const { password, ...others } = saveUser._doc;
-          const token = await jwt.sign({email:saveUser.email, id:saveUser._id, role: saveUser.role}, SecretKey)
-          const message = saveUser.role === 'admin' ? "Hurray! Admin Signed Up" : "Hurray! User Signed Up"
-          return res.status(200).json({message, ...others, token})
+    await user.save();
+    const { password, ...others } = user._doc;
+    const accessToken = Jwt.sign(
+      {
+        isAdmin: user.isAdmin,
+        _id: user.id,
+      },
+      process.env.JWT_SEC,
+      { expiresIn: "30d" }
+    );
+
+    res.status(200).json({
+      code: 200,
+      message: "User Logged In Successfully",
+      user: others,
+      accessToken,
+    });
+  } catch (err) {
+    res.status(500).json({ code: 500, message: "Error Occurred" });
+  }
+};
+const ForgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const trimmedEmail = email.trim();
+    const lowercaseEmail = trimmedEmail.toLowerCase();
+    existingUser = await User.findOne({ email: lowercaseEmail });
+    // Regular expression to validate the email format
+    const user = await User.findOne({
+      email: lowercaseEmail,
+    });
+    if (!user) {
+      return res
+        .status(401)
+        .json({ code: 401, message: "User does not exist with this email" });
+    }
+    await otpResetModel.deleteMany({ userId: user._id });
+    const otp = otpGenerate();
+    const resetOtp = new otpResetModel({
+      userId: user.id,
+      otp,
+    });
+    await resetOtp.save();
+    await accountMail(user.email, "Reset Password OTP", otp);
+    res.status(200).json({ message: "Reset OTP Sent to your given email" });
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      message: "Error while Requesting Password Reset Request ",
+    });
+  }
+};
+const VerifyOTP = async (req, res) => {
+  try {
+    const resetOtp = await otpResetModel.findOne({ otp: req.body.otp });
+    if (!resetOtp) {
+      return res.status(404).json({ code: 404, message: "Invalid OTP" });
+    }
+    res.status(200).json({ data: resetOtp });
+  } catch (error) {
+    res.status(500).json({ error: "Server Error" });
+  }
+};
+const ResetPassword = async (req, res) => {
+  const password = req.body.password;
+  const resetOtp = await otpResetModel.findOne({
+    otp: req.body.otp,
+    // userId : req.body.userId
+  });
+  if (!resetOtp) {
+    return res.status(401).json({ message: "Invalid OTP" });
+  }
+  const salt = await bcrypt.genSalt(15);
+  const hashpassword = await bcrypt.hash(password, salt);
+  try {
+    await User.findByIdAndUpdate(resetOtp.userId, {
+      $set: {
+        password: hashpassword,
+      },
+    });
+    await otpResetModel.deleteMany({ userId: resetOtp.userId });
+    return res
+      .status(200)
+      .json({ code: 200, message: "Password Updated successfully" });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: "Error While Reset Password" });
+  }
+};
+const Dashboard = async (req, res) => {
+  try {
+    const admins = await User.countDocuments({ isAdmin: true });
+    const users = await User.countDocuments();
+    const usersData = await User.find({ isAdmin: false }).select("createdAt");
+    res.status(200).json({ admins, users, usersData });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ code: 500, message: "Error Getting Dashboard Data" });
+  }
+};
+const RegisterAdmin = async (req, res) => {
+  try {
+    const checke = await User.findOne({
+      email: req.body.email.toLowerCase(),
+    });
+    if (checke)
+      return res.status(409).json({
+        code: 409,
+        message: "Admin with this Email Already Exists",
+      });
+    let imageUrl = "";
+    if (req.file) {
+      const params = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: generateRandomString() + req.file.originalname,
+        Body: req.file.buffer,
+      };
+      const command = new PutObjectCommand(params);
+      const data = await s3.send(command);
+      imageUrl = `https://${params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
+    }
+
+
+    const salt = await bcrypt.genSalt(12);
+    const hashpassword = await bcrypt.hash(req.body.password, salt);
+    const newAdmin = new User({
+      username: req.body.username,
+      email: req.body.email.toLowerCase(),
+      profileImage: imageUrl,
+      password: hashpassword,
+      isAdmin: true,
+    });
+    const savedAdmin = await newAdmin.save();
+    res
+      .status(200)
+      .json({ code: 200, message: "Admin Registered", savedAdmin });
   } catch (error) {
     console.log(error);
-      return res.status(500).json({message: "Server error: " + error.message})
+    res.status(500).json({ code: 500, message: "Error Registering Admin" });
   }
-
-}
-
-
-//Loign the User
-const userLogin = async (req, res) => {
-  const {email} = req.body
+};
+const Loginadmin = async (req, res) => {
   try {
-      if(!email || !req.body.password) {
-          return res.status(400).json({message: "Please enter all required information"})
-      }
-      const trimmedEmail = email.trim()
-      const lowercaseEmail = trimmedEmail.toLowerCase()
-      existingUser = await userModel.findOne({email: lowercaseEmail})
-      // Regular expression to validate the email format
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|mil|int)$/;
-      if (!emailRegex.test(lowercaseEmail)) {
-          return res.status(400).json({ message: "Invalid email format" });
-      }
-      if(!existingUser){
-          return res.status(404).json({message:"User does not exist, please sign up first"})
-      }
-      const matchPassword = await bcrypt.compare(req.body.password, existingUser.password)
-      if(!matchPassword){
-          return res.status(400).json({message: "Invalid password"})
-      }
-
-      // Check if the user is an admin
-      if (existingUser.role === 'admin') {
-        // Perform any additional logic specific to admin login if needed
-        console.log("Admin logged in");
-    } else if (existingUser.role === 'user') {
-        // Logic for regular user login
-        console.log("User logged in");
+    const user = await User.findOne({
+      email: req.body.email.toLowerCase(),
+    });
+    if (!user) {
+      return res.status(401).json({ code: 401, error: "User not found" });
     }
-      const { password, ...others } = existingUser._doc;
-      const token = await jwt.sign({email:existingUser.email, id:existingUser._id, role: existingUser.role},SecretKey)
-      return res.status(200).json({...others , token})
+    const comparepass = await bcrypt.compare(req.body.password, user.password);
+    if (!comparepass) {
+      return res.status(401).json({ code: 401, error: "Invalid Password" });
+    }
+    const { password, ...others } = user._doc;
+    const accessToken = Jwt.sign(
+      {
+        isAdmin: user.isAdmin,
+        _id: user.id,
+      },
+      process.env.JWT_SEC,
+      { expiresIn: "30d" }
+    );
+    user.deviceToken = req.body.deviceToken;
+    res.status(200).json({
+      code: 200,
+      message: "User Loged In Successfully",
+      ...others,
+      accessToken,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ code: 500, error: "Error Occured" });
+  }
+};
+const AllUSers = async (req, res) => {
+  try {
+    const usersData = await User.find({ isAdmin: false })
+      .select("username email createdAt")
+      .sort({ createdAt: -1 });
+    res.status(200).json({ usersData });
   } catch (error) {
-    console.log("Error : ", error);
-      return res.status(500).json({message: "Server error: " + error.message})
+    res.status(500).json({ code: 500, message: "Error Getting Users Data" });
   }
-}
-
-
-//Get all users by Admin
-const getAllUsers = async (req, res) => {
+};
+const GetUserDetails = async (req, res) => {
   try {
-   // Check if the user is an admin
-   if (req.user && req.user.role === 'admin') {
-    //check if the admin is activated or deactivated
-    const requestingAdmin = await userModel.findById(req.user.id);
-    if(!requestingAdmin || requestingAdmin.activation === false){
-      return res.status(403).json({message: "Access denied. Your account is deactivated."})
-    }
-      // Fetch all users and exclude the password field
-      const users = await userModel.find({ role: { $ne: 'admin' } }).select('-password');
-      return res.status(200).json(users);
-    } else {
-      // Return forbidden if the user is not an admin
-      return res.status(403).json({ message: "Access denied. Admins only." });
-    }
+    const user = await User.findById(req.params.userId);
+    if (!user)
+      return res.status(404).json({
+        code: 404,
+        error: "User Not Found",
+      });
+    res.status(200).json({ code: 200, message: "User Details", user });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      code: 500,
+      error: "Error Getting User Details " + error.message,
+    });
   }
-}
-
-
-
-//Get all Admins 
-const getAllAdmins = async (req, res) => {
+};
+const DeleteUser = async (req, res) => {
   try {
-    // Check if the user is an admin
-    if (req.user && req.user.role === 'admin') {
-    //check if the admin is activated or deactivated
-    const requestingAdmin = await userModel.findById(req.user.id);
-    if(!requestingAdmin || requestingAdmin.activation === false){
-      return res.status(403).json({message: "Access denied. Your account is deactivated."})
+    const userId = req.params.userId;
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ code: 404, message: "User not found" });
     }
-      // Fetch all users and exclude the password field
-      const admins = await userModel.find({ role:'admin' }).select('-password');
-      return res.status(200).json(admins);
-    } else {
-      // Return forbidden if the user is not an admin
-      return res.status(403).json({ message: "Access denied. Admins only." });
-    }
+    await User.findByIdAndDelete(userId);
+    res.status(200).json({ code: 200, message: "User deleted successfully" });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    res
+      .status(500)
+      .json({ code: 500, message: "Error while processing request" });
   }
-}
-
-
-// get single Admin 
-const getAdminById = async (req, res) => {
+};
+const GetAllAdmins = async (req, res) => {
   try {
-    const{userId} = req.params
-    // Check if the user is an admin
-    if (req.user && req.user.role === 'admin') {
-      //check if the admin is activated or deactivated
-    const requestingAdmin = await userModel.findById(req.user.id);
-    if(!requestingAdmin || requestingAdmin.activation === false){
-      return res.status(403).json({message: "Access denied. Your account is deactivated."})
-    }
-      // Fetch all users and exclude the password field
-      const admin = await userModel.find( {_id: userId,  role:'admin' }).select('-password');
-      if(!admin){
-        return res.status(404).json({message:"Admin not found by this id"})
-      }
-      return res.status(200).json(admin);
-    } else {
-      // Return forbidden if the user is not an admin
-      return res.status(403).json({ message: "Access denied. Admins only." });
-    }
+    const allAdmins = await User.find({
+      isAdmin: true,
+    }).sort({
+      createdAt: -1,
+    });
+    res.status(200).json({ code: 200, admins: allAdmins });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ code: 500, message: "Error While Getting Admins" });
   }
-}
-
-
-//get user by id
-const getUserById = async (req, res) => {
+};
+const EditProfile = async (req, res) => {
   try {
-     const { userId } = req.params;
-    // Check if the user is an admin
-    if (req.user && req.user.role === 'admin') {
-       //check if the admin is activated or deactivated
-    const requestingAdmin = await userModel.findById(req.user.id);
-    if(!requestingAdmin || requestingAdmin.activation === false){
-      return res.status(403).json({message: "Access denied. Your account is deactivated."})
-    }
-      const user = await userModel.findById(userId).select('-password');
-    
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      return res.status(200).json(user);
-    } else {
-      // Return forbidden if the user is not an admin
-      return res.status(403).json({ message: "Access denied. Admins only." });
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
+    const userId = req.params.userId;
+    const { username } = req.body;
 
-
-
-//Activate / De-Activate user by admin
-const activateOrDeactivateUser = async (req, res) => {
-  const { userId, action } = req.body; // 'action' will determine activation or deactivation
-  try {
-    // Check if user exists by userId
-    const user = await userModel.findById(userId).select('-password');;
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    // Toggle activation/deactivation based on action provided
-    if (action === 'activate') {
-      if (user.activation === true) {
-        return res.status(400).json({ message: "User is already activated" });
-      }
-      user.activation = true; // Activate user
-    } else if (action === 'deactivate') {
-      if (user.activation === false) {
-        return res.status(400).json({ message: "User is already deactivated" });
-      }
-      user.activation = false; // Deactivate user
-    } else {
-      return res.status(400).json({ message: "Invalid action" });
-    }
-    // Save the updated user status
+    user.username = username;
     await user.save();
-    return res.status(200).json({
-      message: `User has been ${action === 'activate' ? 'activated' : 'deactivated'} successfully`,
-      user,
-    });
+    res
+      .status(200)
+      .json({ message: "User profile updated successfully", user });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
-
-
-//Activate Or Deactivate admins by Admin
-const activateOrDeactivateAdmin = async (req, res) => {
-  const { userId, action } = req.body; // 'action' will determine activation or deactivation
-  try {
-    // Check if the requesting user (admin) has the role 'admin'
-    const requestingAdmin = await userModel.findById(req.user.id); // assuming req.user.id is the logged-in admin's ID
-    if (!requestingAdmin || requestingAdmin.role !== 'admin') {
-      return res.status(403).json({ message: "Only admins can perform this action" });
-    }
-    // Check if the target user exists by userId
-    const targetAdmin = await userModel.findById(userId).select('-password');;
-
-    if (!targetAdmin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    // Check if the target user is an admin
-    if (targetAdmin.role !== 'admin') {
-      return res.status(400).json({ message: "User is not an admin" });
-    }
-
-    // Toggle activation/deactivation based on the action provided
-    if (action === 'activate') {
-      if (targetAdmin.activation === true) {
-        return res.status(400).json({ message: "Admin is already activated" });
-      }
-      targetAdmin.activation = true; // Activate admin
-    } else if (action === 'deactivate') {
-      if (targetAdmin.activation === false) {
-        return res.status(400).json({ message: "Admin is already deactivated" });
-      }
-      targetAdmin.activation = false; // Deactivate admin
-    } else {
-      return res.status(400).json({ message: "Invalid action" });
-    }
-    // Save the updated admin status
-    await targetAdmin.save();
-
-    return res.status(200).json({
-      message: `Admin has been ${action === 'activate' ? 'Activated' : 'Deactivated'} successfully`,
-      targetAdmin,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal server error" });
-  }
+module.exports = {
+  Signup,
+  Login,
+  ForgotPassword,
+  VerifyOTP,
+  ResetPassword,
+  Dashboard,
+  RegisterAdmin,
+  Loginadmin,
+  AllUSers,
+  GetUserDetails,
+  DeleteUser,
+  GetAllAdmins,
+  EditProfile,
 };
-
-
-
-//Forgot Password
-const forgotPassword = async (req, res) => {
-    const { email } = req.body;
-    try {
-      const trimmedEmail = email.trim()
-      const lowercaseEmail = trimmedEmail.toLowerCase()
-      existingUser = await userModel.findOne({email: lowercaseEmail})
-      // Regular expression to validate the email format
-      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(com|org|net|edu|gov|mil|int)$/;
-      if (!emailRegex.test(lowercaseEmail)) {
-          return res.status(400).json({ message: "Invalid email format" });
-      }
-      const user = await userModel.findOne({
-        email: lowercaseEmail
-      });
-      if (!user) {
-        return res.status(401).json({error: "User does not exist with this email" });
-      }
-      await otpResetModel.deleteMany({ userId: user._id });
-      const otp = otpGenerate();
-      const resetOtp = new otpResetModel({
-        userId: user.id,
-        otp,
-      });
-      await resetOtp.save();
-      await accountMail(user.email, "Reset Password OTP", otp);
-      res.status(200).json({message: "Reset OTP Sent to your given email" });
-    } catch (error) {
-      console.log(error.message);
-      res.status(500).json({
-        code: 500,
-        error: "Error while Requesting Password Reset Request ",
-      });
-        console.log("🚀 ~ res.status ~ error:", error)
-    }
-  };
-
-
-
-//Verify OTP
-const VerifyOTP = async (req, res) => {
-    try {
-      const resetOtp = await otpResetModel.findOne({ otp: req.body.otp });
-      if (!resetOtp) {
-        return res.status(404).json({message: "Invalid OTP" });
-      }
-      
-      res.status(200).json({data: resetOtp });
-    } catch (error) {
-      res.status(500).json({error: "Server Error" });
-    }
-  };
-
-
-//Reset Password
-const resetPassword = async (req, res) => {
-    const password = req.body.password;
-    const resetOtp = await otpResetModel.findOne({
-      otp: req.body.otp,
-      // userId: req.body.userId,
-    });
-    if (!resetOtp) {
-      return res.status(401).json({message: "Invalid OTP" });
-    }
-    // const salt = await bcrypt.genSalt(15);
-    const hashpassword = await bcrypt.hash(password, 10);
-    // console.log("aaaaaaaaaaaaaaaaaaaaaaa");
-    try {
-      await userModel.findByIdAndUpdate(resetOtp.userId, {
-        $set: {
-          password: hashpassword,
-        },
-      });
-      await otpResetModel.deleteMany({ userId: resetOtp.userId });
-      return res
-        .status(200)
-        .json({message: "Password Updated successfully" });
-    } catch (error) {
-        console.log(error);
-      res.status(500).json({message: "Error While Reset Password" });
-    }
-
-  };
-
-
-
-
-module.exports = {userSignUp, userLogin, getAllUsers,getUserById,getAllAdmins, getAdminById, activateOrDeactivateUser, activateOrDeactivateAdmin, forgotPassword, VerifyOTP, resetPassword}

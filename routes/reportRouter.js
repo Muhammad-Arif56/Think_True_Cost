@@ -1,10 +1,20 @@
-const express = require('express');
-const authorizationMiddleware = require('../middlewares/myAuth');
-const adminAccess = require('../middlewares/adminAccessMiddleware');
-const { createReport, getAllReports } = require('../controllers/reportController');
-const reportRouter = express.Router();
+const express = require("express");
+const router = express.Router();
+const { createReport, getReports, getReportById, updateReport, deleteReport } = require("../controllers/reportController");
 
-reportRouter.post('/create-report', authorizationMiddleware, createReport);
-reportRouter.get('/all-reports', authorizationMiddleware, adminAccess, getAllReports);
+// Create a new report
+router.post("/submit-report", createReport);
 
-module.exports = reportRouter
+// Get all reports
+router.get("/get-reports", getReports);
+
+// Get a specific report by ID
+router.get("/report-details/:id", getReportById);
+
+// Update a report by ID
+router.put("/update-report/:id", updateReport);
+
+// Delete a report by ID
+router.delete("/delete-report/:id", deleteReport);
+
+module.exports = router;
