@@ -111,13 +111,39 @@ exports.spendingHabit = async (req, res) => {
       return principal * Math.pow(1 + rate, time);
     };
 
-    const data = intervals.map(interval => {
-        return {
-            year: interval,
-            annualReturn: calculateFutureValueForInterval(total_interest, annualReturnDecimal, interval).toFixed(0),
-            sp500HistoricalReturn: calculateFutureValueForInterval(total_interest, sp500HistoricalReturn, interval).toFixed(0),
-            tenYearTreasuryReturn: calculateFutureValueForInterval(total_interest, tenYearTreasuryReturn, interval).toFixed(0)
-        };
+    const data = intervals.map((interval) => {
+      return {
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(
+          total_interest,
+          annualReturnDecimal,
+          interval
+        ),
+        sp500HistoricalReturn: calculateFutureValueForInterval(
+          total_interest,
+          sp500HistoricalReturn,
+          interval
+        ),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(
+          total_interest,
+          tenYearTreasuryReturn,
+          interval
+        ),
+      };
+    });
+    await spendingHabitModel.findByIdAndUpdate(
+      savedCalculatedData._id,
+      {
+        projectionData: data,
+      },
+      {
+        new: true,
+      }
+    );
+    return res.status(201).json({
+      message: "Spending Habit calculation is created and recorded",
+      calculated_data,
+      projectionData: data,
     });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
