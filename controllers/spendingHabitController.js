@@ -20,22 +20,26 @@ exports.spendingHabit = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
     const yearsBeforeRetirement = retirementAge - currentAge;
-    let newroi = annualReturn || 4;
-    const annualReturnDecimal = newroi / 100;
+    //by default value
+    let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
+    const annualReturnDecimal = newroi; // Convert to decimal
+  
+    // Calculate costs
     let weeklyCost = 0;
     let monthlyCost = 0;
     let yearlyCost = 0;
     if (frequency && avg_cost) {
       weeklyCost = frequency * avg_cost;
-      const weeks_per_month = 52 / 12;
-      monthlyCost = weeklyCost * weeks_per_month;
-      yearlyCost = weeklyCost * 52;
+      // const weeks_per_month = 52 / 12;
+      monthlyCost = weeklyCost * 4.3;
+      yearlyCost = monthlyCost * 12;
+      
     }
     const sp500HistoricalReturn = 10.67;
     const tenYearTreasuryReturn = 5.6;
 
-    const sp500HistoricalReturnDecimal = 10.67 / 100;
-    const tenYearTreasuryReturnDecimal = 5.6 / 100;
+    const sp500HistoricalReturnDecimal = 10.67;
+    const tenYearTreasuryReturnDecimal = 5.60;
     function calculateFutureValue(rate, nper, pmt, pv, type) {
       rate = rate / 100;
       let futureValue =
@@ -81,18 +85,18 @@ exports.spendingHabit = async (req, res) => {
       currentAge,
       retirementAge,
       yearsBeforeRetirement,
-      weeklyCost: weeklyCost.toFixed(2),
-      monthlyCost: monthlyCost.toFixed(2),
-      yearlyCost: yearlyCost.toFixed(2),
+      weeklyCost: weeklyCost.toFixed(0),
+      monthlyCost: monthlyCost.toFixed(0),
+      yearlyCost: yearlyCost.toFixed(0),
       annualReturn: annualReturnDecimal,
       sp500HistoricalReturn: sp500HistoricalReturn,
       tenYearTreasuryReturn: tenYearTreasuryReturn,
-      TTCSavingReturn: TTCSavingReturn.toFixed(2),
-      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(2),
-      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(2),
-      TTCSavings: TTCSavings.toFixed(2),
-      TCA: TCA.toFixed(2),
-      TotalInterest: TotalInterest.toFixed(2),
+      TTCSavingReturn: TTCSavingReturn.toFixed(0),
+      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(0),
+      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(0),
+      TTCSavings: TTCSavings.toFixed(0),
+      TCA: TCA.toFixed(0),
+      TotalInterest: TotalInterest.toFixed(0),
     });
     const savedCalculatedData = await calculated_data.save();
     const total_interest = calculated_data.TotalInterest;
