@@ -20,7 +20,7 @@ const {
 } = require("../controllers/userController");
 
 router.post("/signup", Signup);
-router.post("/google/verify-token", GoogleLoginOrSignup);
+router.post("/google", GoogleLoginOrSignup);
 router.post("/login", Login);
 router.post("/forgot-password", ForgotPassword);
 router.post("/verify-otp", VerifyOTP);
