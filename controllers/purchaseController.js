@@ -20,11 +20,11 @@ exports.oneTimePurchase = async (req, res) => {
     const yearsBeforeRetirement = retirementAge - currentAge;
     //by default value
     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
-    const annualReturnDecimal = newroi / 100; // Convert to decimal
+    const annualReturnDecimal = newroi; // Convert to decimal
   
     // Historical returns
-    const sp500HistoricalReturn = 10.67/100; // Average historical return for SP 500
-    const tenYearTreasuryReturn = 5.6/100; // Average historical return for 10 YR US Treasury bond
+    const sp500HistoricalReturn = 10.67; // Average historical return for SP 500
+    const tenYearTreasuryReturn = 5.6; // Average historical return for 10 YR US Treasury bond
 
     
     // Excel formula parameters
@@ -81,10 +81,10 @@ exports.oneTimePurchase = async (req, res) => {
       tenYearTreasuryReturn,
       TTCSavingReturn,
       TTCSavingSP500Return,
-      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(2),
-      TTCSavings: TTCSavings.toFixed(2),
-      TCA: TCA.toFixed(2),
-      TotalInterest: TotalInterest.toFixed(2)
+      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(0),
+      TTCSavings: TTCSavings.toFixed(0),
+      TCA: TCA.toFixed(0),
+      TotalInterest: TotalInterest.toFixed(0)
     });
     await purchase_calculations.save();
 

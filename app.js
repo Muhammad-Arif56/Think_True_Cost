@@ -5,7 +5,8 @@ const bodyParser = require('body-parser');
 const userRouter = require('./routes/userRouter');
 const profileRouter = require('./routes/profileRouter');
 const purchaseRouter = require('./routes/purchaseRouter');
-const spendingHabitRouter =  require('./routes/spendingHabitRouter')
+const spendingHabitRouter =  require('./routes/spendingHabitRouter');
+const reportRouter = require('./routes/reportRouter');
 
 
 //Middlewares
@@ -18,6 +19,7 @@ app.use('/auth/user', userRouter)
 app.use('/auth/userprofile', profileRouter)
 app.use('/auth/user', purchaseRouter)
 app.use('/auth/user', spendingHabitRouter);
+app.use('/auth/user', reportRouter)
 
 
 const port = process.env.PORT || 9090;

@@ -17,7 +17,7 @@ exports.spendingHabit = async (req, res) => {
     const yearsBeforeRetirement = retirementAge - currentAge;
     //by default value
     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
-    const annualReturnDecimal = newroi / 100; // Convert to decimal
+    const annualReturnDecimal = newroi; // Convert to decimal
   
     // Calculate costs
     let weeklyCost = 0;
@@ -26,9 +26,10 @@ exports.spendingHabit = async (req, res) => {
 
     if (frequency && avg_cost) {
       weeklyCost = frequency * avg_cost;
-      const weeks_per_month = 52 / 12;
-      monthlyCost = weeklyCost * weeks_per_month;
-      yearlyCost = weeklyCost * 52;
+      // const weeks_per_month = 52 / 12;
+      monthlyCost = weeklyCost * 4.3;
+      yearlyCost = monthlyCost * 12;
+      
     }
 
     // Calculations
@@ -36,8 +37,8 @@ exports.spendingHabit = async (req, res) => {
     const sp500HistoricalReturn = 10.67; // Average historical return for SP 500
     const tenYearTreasuryReturn = 5.60; // Average historical return for 10 YR US Treasury bond
 
-    const sp500HistoricalReturnDecimal = 10.67/100;
-    const tenYearTreasuryReturnDecimal = 5.60/100;
+    const sp500HistoricalReturnDecimal = 10.67;
+    const tenYearTreasuryReturnDecimal = 5.60;
     function calculateFutureValue(rate, nper, pmt, pv, type) {
       rate = rate / 100; // Convert rate to decimal
       let futureValue = pv * Math.pow(1 + rate, nper) + pmt * ((Math.pow(1 + rate, nper) - 1) / rate) * (1 + rate * type);
@@ -77,18 +78,18 @@ exports.spendingHabit = async (req, res) => {
       currentAge,
       retirementAge,
       yearsBeforeRetirement,
-      weeklyCost: weeklyCost.toFixed(2),
-      monthlyCost: monthlyCost.toFixed(2),
-      yearlyCost: yearlyCost.toFixed(2),
+      weeklyCost: weeklyCost.toFixed(0),
+      monthlyCost: monthlyCost.toFixed(0),
+      yearlyCost: yearlyCost.toFixed(0),
       annualReturn: annualReturnDecimal,
       sp500HistoricalReturn: sp500HistoricalReturn,
       tenYearTreasuryReturn: tenYearTreasuryReturn,
-      TTCSavingReturn: TTCSavingReturn.toFixed(2),
-      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(2),
-      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(2),
-      TTCSavings: TTCSavings.toFixed(2),
-      TCA: TCA.toFixed(2),
-      TotalInterest: TotalInterest.toFixed(2),
+      TTCSavingReturn: TTCSavingReturn.toFixed(0),
+      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(0),
+      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(0),
+      TTCSavings: TTCSavings.toFixed(0),
+      TCA: TCA.toFixed(0),
+      TotalInterest: TotalInterest.toFixed(0),
     });
 
     //graph values......
@@ -107,9 +108,9 @@ exports.spendingHabit = async (req, res) => {
     const data = intervals.map(interval => {
         return {
             year: interval,
-            annualReturn: calculateFutureValueForInterval(total_interest, annualReturnDecimal, interval),
-            sp500HistoricalReturn: calculateFutureValueForInterval(total_interest, sp500HistoricalReturn, interval),
-            tenYearTreasuryReturn: calculateFutureValueForInterval(total_interest, tenYearTreasuryReturn, interval)
+            annualReturn: calculateFutureValueForInterval(total_interest, annualReturnDecimal, interval).toFixed(0),
+            sp500HistoricalReturn: calculateFutureValueForInterval(total_interest, sp500HistoricalReturn, interval).toFixed(0),
+            tenYearTreasuryReturn: calculateFutureValueForInterval(total_interest, tenYearTreasuryReturn, interval).toFixed(0)
         };
     });
 
