@@ -5,6 +5,7 @@ const generateRandomString = require("../utils/generateRandomString");
 const otpResetModel = require("../models/otpResetModel");
 const accountMail = require("../utils/sendEmail");
 const User = require("../models/User.js");
+const { OAuth2Client } = require("google-auth-library");
 const {
   S3Client,
   DeleteObjectCommand,
@@ -57,69 +58,118 @@ const Signup = async (req, res) => {
   }
 };
 
-const GoogleLoginOrSignup = async (req, res) => {
-  const { username, email, googleId } = req.body; // Added status here
+const GoogleLoginOrSignup = async (req, res, next) => {
+  const { idToken } = req.body;
+  const googleClientId =
+    "259853253259-3e39sotqrrlkhmr4outi7g9gfefjfs8a.apps.googleusercontent.com";
+  const client = new OAuth2Client(googleClientId);
+  let response;
   try {
-    let user = await User.findOne({ googleId });
-    if (!user) {
-      // If user does not exist, create a new user
-      const checkEmail = await User.findOne({ email });
-      if (checkEmail) {
-        return res.status(400).json("Email Already Exist");
-      }
-      user = new User({
-        googleId,
-        email,
-        username,
-      });
-      await user.save();
+    response = await client.verifyIdToken({
+      idToken,
+      audience: googleClientId,
+    });
+    const expirationTimestamp = response.payload.exp;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    if (currentTimestamp > expirationTimestamp) {
+      return res
+        .status(401)
+        .json({ message: "Google Sign-In token has expired" });
     }
-    const token = Jwt.sign(
-      {
-        isAdmin: user.isAdmin,
-        _id: user._id,
-      },
-      process.env.JWT_SEC,
-      { expiresIn: "3d" }
-    );
-    const { password, ...others } = user._doc;
-    res.status(200).json({ ...others, token });
+  } catch (err) {
+    const error = new Error(err);
+    error.code = 500;
+    return next(error);
+  }
+  const { email, name, picture, sub } = response.payload;
+  try {
+    let user = await User.findOne({ email: email });
+    if (!user) {
+      const newUser = new User({
+        email: email,
+        username: name,
+        profileImage: picture,
+        googleId: sub,
+        userType: "google",
+      });
+      await newUser.save();
+      const token = Jwt.sign(
+        {
+          userId: newUser._id,
+        },
+        process.env.JWT_SEC,
+        {
+          expiresIn: "30d",
+        }
+      );
+      return res.status(200).json({
+        message: "Google Sign-In successful",
+        user: {
+          _id: newUser._id,
+          username: newUser.username,
+          profileImage: newUser.profileImage,
+          email: newUser.email,
+          googleId: newUser.googleId,
+          userType: newUser.userType,
+          __v: newUser.__v,
+        },
+        token: token,
+      });
+    } else {
+      const token = Jwt.sign(
+        {
+          userId: user._id,
+        },
+        process.env.JWT_SEC,
+        {
+          expiresIn: "30d",
+        }
+      );
+      await user.save();
+      return res.status(200).json({
+        message: "Google Sign-In successful",
+        user: user,
+        token: token,
+      });
+    }
   } catch (error) {
-    res.status(400).json("Error while Google signup");
+    return res.status(500).json({ error: error.message });
   }
 };
 
 const Login = async (req, res) => {
   try {
+    // Find user by email
     const user = await User.findOne({
       email: req.body.email.toLowerCase(),
     });
+
+    // Check if user exists
     if (!user) {
       return res.status(401).json({ code: 401, message: "User not found" });
     }
-    if (user.googleId && req.body.password) {
+
+    // Check if user is registered using Google
+    if (user.userType === "google") {
       return res.status(401).json({
         code: 401,
-        message: "Email is already signed up using Google, Login with Google",
+        message:
+          "Email is registered with Google. Please log in using Google.",
       });
     }
-    // If the user has either googleId or facebookId, skip password check
-    if (!user.googleId) {
-      if (!req.body.password) {
-        return res
-          .status(401)
-          .json({ code: 401, message: "Password Required" });
-      }
-      const comparepass = bcrypt.compare(req.body.password, user.password);
-      if (!comparepass) {
-        return res
-          .status(401)
-          .json({ code: 401, message: "Invalid Credentials" });
-      }
+
+    // Compare password
+    const comparePass = await bcrypt.compare(req.body.password, user.password);
+    if (!comparePass) {
+      return res
+        .status(401)
+        .json({ code: 401, message: "Invalid Credentials" });
     }
-    // Update device token
-    // user.deviceToken = req.body.deviceToken;
+
+    // Destructure to exclude password from the response
     const { password, ...others } = user._doc;
+
+    // Generate JWT token
     const accessToken = Jwt.sign(
       {
         isAdmin: user.isAdmin,
@@ -129,6 +179,7 @@ const Login = async (req, res) => {
       { expiresIn: "30d" }
     );
 
+    // Respond with user data and token
     res.status(200).json({
       code: 200,
       message: "User Logged In Successfully",
@@ -139,6 +190,7 @@ const Login = async (req, res) => {
     res.status(500).json({ code: 500, message: "Error Occurred" });
   }
 };
+
 const ForgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -239,7 +291,6 @@ const RegisterAdmin = async (req, res) => {
       const data = await s3.send(command);
       imageUrl = `https://${params.Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${params.Key}`;
     }
-    
 
     const salt = await bcrypt.genSalt(12);
     const hashpassword = await bcrypt.hash(req.body.password, salt);

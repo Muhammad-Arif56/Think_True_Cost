@@ -11,11 +11,6 @@ const UserSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
     },
-    // password: {
-    //   type: String,
-    //   required: true,
-    //   minlength: 8,
-    // },
     password: {
       type: String,
       required: function () {
@@ -35,6 +30,10 @@ const UserSchema = new mongoose.Schema(
     isAdmin: {
       type: Boolean,
       default: false,
+    },
+    userType: {
+      type: String,
+      default: "",
     },
   },
   { timestamps: true }
