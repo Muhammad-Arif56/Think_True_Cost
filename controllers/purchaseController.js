@@ -4,34 +4,177 @@ const User = require("../models/User");
 
 //_________________ One Time Purchase Step1  ____________________
 
+// exports.oneTimePurchase = async (req, res) => {
+//   try {
+//     const {
+//       item_name,
+//       purchaseAmount,
+//       currentAge,
+//       retirementAge,
+//       annualReturn,
+//     } = req.body;
+
+//     // Check if user exists
+//     const user = await User.findById(req.user.id);
+//     if (!user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     // Calculations
+//     const yearsBeforeRetirement = retirementAge - currentAge;
+//     //by default value
+//     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
+//     const annualReturnDecimal = newroi; // Convert to decimal
+  
+//     // Historical returns
+//     const sp500HistoricalReturn = 10.67; // Average historical return for SP 500
+//     const tenYearTreasuryReturn = 5.6; // Average historical return for 10 YR US Treasury bond
+
+//     // Excel formula parameters
+//     const rate = annualReturnDecimal;
+//     const nper = yearsBeforeRetirement;
+//     const pmt = 0; // Assuming no additional payments
+//     const pv = purchaseAmount;
+//     const type = 0; // Assuming payments at the end of the period
+//     // Future value calculation function
+//     function calculateFutureValue(rate, years, payment, presentValue, type) {
+//       // Convert rate to decimal
+//       rate = rate / 100;
+
+//       // Calculate the future value using the formula
+//       let futureValue = presentValue * Math.pow(1 + rate, years);
+
+//       futureValue +=
+//         payment * ((Math.pow(1 + rate, years) - 1) / rate) * (1 + rate * type);
+
+//       // Adjust future value for payments (if any)
+//       // Round the future value to two decimal places
+//       futureValue = Math.round(futureValue * 100) / 100;
+//       return futureValue;
+//     }
+//     // Calculate Future Value for the provided annual return
+//     const futureValue = calculateFutureValue(rate, nper, pmt, pv, type);
+//     console.log("🚀  exports.purchaseFirstStep=  futureValue:", futureValue);
+
+//     // Lost Opportunity Cost (LOC) calculations
+//     const TTCSavingReturn = futureValue;
+//     const TTCSavingSP500Return = calculateFutureValue(
+//       sp500HistoricalReturn,
+//       yearsBeforeRetirement,
+//       0,
+//       purchaseAmount,
+//       0
+//     );
+//     const TTCSaving10YrTreasurReturn = calculateFutureValue(
+//       tenYearTreasuryReturn,
+//       yearsBeforeRetirement,
+//       0,
+//       purchaseAmount,
+//       0
+//     );
+
+//     //Final calculation values for Graph....
+//     const TTCSavings =
+//       TTCSavingReturn + TTCSavingSP500Return + TTCSaving10YrTreasurReturn;
+//     const TCA = purchaseAmount;
+
+//     const P = purchaseAmount;
+//     const n = 1;
+//     const time = yearsBeforeRetirement;
+//     const Amount = P * (1 + rate / n) ** (n * time);
+//     const TotalInterest = Amount - purchaseAmount;
+
+//     // Save data to DB
+//     const purchase_calculations = await new purchaseModel({
+//       userId: req.user.id,
+//       item_name,
+//       purchaseAmount,
+//       currentAge,
+//       retirementAge,
+//       yearsBeforeRetirement,
+//       annualReturn: annualReturnDecimal,
+//       sp500HistoricalReturn,
+//       tenYearTreasuryReturn,
+//       TTCSavingReturn,
+//       TTCSavingSP500Return,
+//       TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(0),
+//       TTCSavings: TTCSavings.toFixed(0),
+//       TCA: TCA.toFixed(0),
+//       TotalInterest: TotalInterest.toFixed(0)
+//     });
+//     const savedPurchaseCalculation = await purchase_calculations.save();
+
+//     //graph values......
+//     const total_interest = purchase_calculations.TotalInterest;
+//     const totalYears = purchase_calculations.yearsBeforeRetirement;
+
+//     // Generate intervals dynamically based on the number of years with a difference of 5 years
+//     const intervals = [];
+//     for (let i = 0; i <= totalYears; i += 5) {
+//       intervals.push(i);
+//     }
+
+//     const calculateFutureValueForInterval = (principal, rate, time) => {
+//       return principal * Math.pow(1 + rate, time);
+//     };
+
+//     const data = intervals.map((interval) => {
+//       return {
+//         year: interval,
+//         annualReturn: calculateFutureValueForInterval(
+//           total_interest,
+//           annualReturnDecimal,
+//           interval
+//         ),
+//         sp500HistoricalReturn: calculateFutureValueForInterval(
+//           total_interest,
+//           sp500HistoricalReturn,
+//           interval
+//         ),
+//         tenYearTreasuryReturn: calculateFutureValueForInterval(
+//           total_interest,
+//           tenYearTreasuryReturn,
+//           interval
+//         ),
+//       };
+//     });
+//     await purchaseModel.findByIdAndUpdate(
+//       savedPurchaseCalculation._id,
+//       {
+//         projectionData: data,
+//       },
+//       {
+//         new: true,
+//       }
+//     );
+//     return res.status(201).json({
+//       message: "One Time Purchase is calculated and recorded",
+//       purchase_calculations,
+//       projectionData: data,
+//     });
+//   } catch (err) {
+//     return res.status(500).json({ error: "Internal server error" });
+//   }
+// };
+
 exports.oneTimePurchase = async (req, res) => {
   try {
-    const {
-      item_name,
-      purchaseAmount,
-      currentAge,
-      retirementAge,
-      annualReturn,
-    } = req.body;
-
+    const { item_name, purchaseAmount, currentAge, retirementAge, annualReturn } = req.body;
     // Check if user exists
-    const user = await User.findById(req.user.id);
+    const user = await userModel.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-
     // Calculations
     const yearsBeforeRetirement = retirementAge - currentAge;
     //by default value
     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
-    const annualReturnDecimal = newroi; // Convert to decimal
-  
+    const annualReturnPercentage = newroi;
     // Historical returns
-    const sp500HistoricalReturn = 10.67; // Average historical return for SP 500
-    const tenYearTreasuryReturn = 5.6; // Average historical return for 10 YR US Treasury bond
-
+    const sp500HistoricalReturn = 10.67;
+    const tenYearTreasuryReturn = 5.6;
     // Excel formula parameters
-    const rate = annualReturnDecimal;
+    const rate = annualReturnPercentage;
     const nper = yearsBeforeRetirement;
     const pmt = 0; // Assuming no additional payments
     const pv = purchaseAmount;
@@ -40,13 +183,9 @@ exports.oneTimePurchase = async (req, res) => {
     function calculateFutureValue(rate, years, payment, presentValue, type) {
       // Convert rate to decimal
       rate = rate / 100;
-
       // Calculate the future value using the formula
       let futureValue = presentValue * Math.pow(1 + rate, years);
-
-      futureValue +=
-        payment * ((Math.pow(1 + rate, years) - 1) / rate) * (1 + rate * type);
-
+      futureValue += payment * ((Math.pow(1 + rate, years) - 1) / rate) * (1 + rate * type);
       // Adjust future value for payments (if any)
       // Round the future value to two decimal places
       futureValue = Math.round(futureValue * 100) / 100;
@@ -54,36 +193,19 @@ exports.oneTimePurchase = async (req, res) => {
     }
     // Calculate Future Value for the provided annual return
     const futureValue = calculateFutureValue(rate, nper, pmt, pv, type);
-    console.log("🚀  exports.purchaseFirstStep=  futureValue:", futureValue);
-
+    exports.purchaseFirstStep =  futureValue
     // Lost Opportunity Cost (LOC) calculations
     const TTCSavingReturn = futureValue;
-    const TTCSavingSP500Return = calculateFutureValue(
-      sp500HistoricalReturn,
-      yearsBeforeRetirement,
-      0,
-      purchaseAmount,
-      0
-    );
-    const TTCSaving10YrTreasurReturn = calculateFutureValue(
-      tenYearTreasuryReturn,
-      yearsBeforeRetirement,
-      0,
-      purchaseAmount,
-      0
-    );
-
+    const TTCSavingSP500Return = calculateFutureValue(sp500HistoricalReturn, yearsBeforeRetirement, 0, purchaseAmount, 0);
+    const TTCSaving10YrTreasurReturn = calculateFutureValue(tenYearTreasuryReturn, yearsBeforeRetirement, 0, purchaseAmount, 0);
     //Final calculation values for Graph....
-    const TTCSavings =
-      TTCSavingReturn + TTCSavingSP500Return + TTCSaving10YrTreasurReturn;
-    const TCA = purchaseAmount;
-
-    const P = purchaseAmount;
-    const n = 1;
-    const time = yearsBeforeRetirement;
-    const Amount = P * (1 + rate / n) ** (n * time);
-    const TotalInterest = Amount - purchaseAmount;
-
+    const TTCSavings = TTCSavingReturn
+    const TCA = purchaseAmount
+    // const P = purchaseAmount
+    // const n = 1
+    // const time = yearsBeforeRetirement
+    // const Amount = P*(1+ rate/n)**(n*time)
+    const TotalInterest = TTCSavings - TCA
     // Save data to DB
     const purchase_calculations = await new purchaseModel({
       userId: req.user.id,
@@ -92,70 +214,44 @@ exports.oneTimePurchase = async (req, res) => {
       currentAge,
       retirementAge,
       yearsBeforeRetirement,
-      annualReturn: annualReturnDecimal,
+      annualReturn: annualReturnPercentage,
       sp500HistoricalReturn,
       tenYearTreasuryReturn,
-      TTCSavingReturn,
-      TTCSavingSP500Return,
-      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(0),
-      TTCSavings: TTCSavings.toFixed(0),
-      TCA: TCA.toFixed(0),
-      TotalInterest: TotalInterest.toFixed(0)
+      TTCSavingReturn: TTCSavingReturn.toFixed(),
+      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(),
+      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(),
+      TTCSavings: TTCSavings.toFixed(),
+      TCA: TCA.toFixed(),
+      TotalInterest: TotalInterest.toFixed()
     });
-    const savedPurchaseCalculation = await purchase_calculations.save();
-
-    //graph values......
-    const total_interest = purchase_calculations.TotalInterest;
-    const totalYears = purchase_calculations.yearsBeforeRetirement;
-
+    await purchase_calculations.save();
+     //graph values......
+     const total_interest = purchase_calculations.TotalInterest
+     const totalYears = purchase_calculations.yearsBeforeRetirement
     // Generate intervals dynamically based on the number of years with a difference of 5 years
     const intervals = [];
     for (let i = 0; i <= totalYears; i += 5) {
-      intervals.push(i);
+        intervals.push(i);
     }
-
     const calculateFutureValueForInterval = (principal, rate, time) => {
-      return principal * Math.pow(1 + rate, time);
+        return principal * Math.pow(1 + rate, time);
     };
-
-    const data = intervals.map((interval) => {
-      return {
-        year: interval,
-        annualReturn: calculateFutureValueForInterval(
-          total_interest,
-          annualReturnDecimal,
-          interval
-        ),
-        sp500HistoricalReturn: calculateFutureValueForInterval(
-          total_interest,
-          sp500HistoricalReturn,
-          interval
-        ),
-        tenYearTreasuryReturn: calculateFutureValueForInterval(
-          total_interest,
-          tenYearTreasuryReturn,
-          interval
-        ),
-      };
+    const data = intervals.map(interval => {
+        return {
+            year: interval,
+            annualReturn: calculateFutureValueForInterval(total_interest, annualReturnPercentage, interval),
+            sp500HistoricalReturn: calculateFutureValueForInterval(total_interest, sp500HistoricalReturn, interval),
+            tenYearTreasuryReturn: calculateFutureValueForInterval(total_interest, tenYearTreasuryReturn, interval)
+        };
     });
-    await purchaseModel.findByIdAndUpdate(
-      savedPurchaseCalculation._id,
-      {
-        projectionData: data,
-      },
-      {
-        new: true,
-      }
-    );
-    return res.status(201).json({
-      message: "One Time Purchase is calculated and recorded",
-      purchase_calculations,
-      projectionData: data,
-    });
+    console.log(JSON.stringify(data, null, 2));
+    return res.status(201).json({ message: "One Time Purchase is calculated and recorded", purchase_calculations});
   } catch (err) {
+    console.error("Error in Purchasing process:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 //___________________      Get all purchase list    _______________________
 
