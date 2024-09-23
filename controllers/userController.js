@@ -103,6 +103,7 @@ const GoogleLoginOrSignup = async (req, res, next) => {
         }
       );
       return res.status(200).json({
+        code: 200,
         message: "Google Sign-In successful",
         user: {
           _id: newUser._id,
@@ -113,7 +114,7 @@ const GoogleLoginOrSignup = async (req, res, next) => {
           userType: newUser.userType,
           __v: newUser.__v,
         },
-        token: token,
+        accessToken: token,
       });
     } else {
       const token = Jwt.sign(
@@ -127,9 +128,10 @@ const GoogleLoginOrSignup = async (req, res, next) => {
       );
       await user.save();
       return res.status(200).json({
+        code: 200,
         message: "Google Sign-In successful",
-        user: user,
-        token: token,
+        user,
+        accessToken: token,
       });
     }
   } catch (error) {
