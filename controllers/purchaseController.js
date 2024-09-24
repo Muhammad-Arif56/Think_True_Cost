@@ -161,7 +161,7 @@ exports.oneTimePurchase = async (req, res) => {
   try {
     const { item_name, purchaseAmount, currentAge, retirementAge, annualReturn } = req.body;
     // Check if user exists
-    const user = await userModel.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
