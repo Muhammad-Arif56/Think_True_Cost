@@ -95,7 +95,7 @@ const GoogleLoginOrSignup = async (req, res, next) => {
       const savedUser = await newUser.save();
       const token = Jwt.sign(
         {
-          userId: savedUser._id,
+          _id: savedUser._id,
         },
         process.env.JWT_SEC,
         {
@@ -119,7 +119,7 @@ const GoogleLoginOrSignup = async (req, res, next) => {
     } else {
       const token = Jwt.sign(
         {
-          userId: user._id,
+          _id: user._id,
         },
         process.env.JWT_SEC,
         {
@@ -155,8 +155,7 @@ const Login = async (req, res) => {
     if (user.userType === "google") {
       return res.status(401).json({
         code: 401,
-        message:
-          "Email is registered with Google. Please log in using Google.",
+        message: "Email is registered with Google. Please log in using Google.",
       });
     }
 
