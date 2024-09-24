@@ -23,7 +23,7 @@ const User = require("../models/User");
 //     //by default value
 //     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
 //     const annualReturnDecimal = newroi; // Convert to decimal
-  
+
 //     // Calculate costs
 //     let weeklyCost = 0;
 //     let monthlyCost = 0;
@@ -33,7 +33,7 @@ const User = require("../models/User");
 //       // const weeks_per_month = 52 / 12;
 //       monthlyCost = weeklyCost * 4.3;
 //       yearlyCost = monthlyCost * 12;
-      
+
 //     }
 //     const sp500HistoricalReturn = 10.67;
 //     const tenYearTreasuryReturn = 5.6;
@@ -152,7 +152,14 @@ const User = require("../models/User");
 
 exports.spendingHabit = async (req, res) => {
   try {
-    const { habit, frequency, avg_cost, currentAge, retirementAge, annualReturn } = req.body;
+    const {
+      habit,
+      frequency,
+      avg_cost,
+      currentAge,
+      retirementAge,
+      annualReturn,
+    } = req.body;
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -168,21 +175,19 @@ exports.spendingHabit = async (req, res) => {
     let yearlyCost = 0;
     if (frequency && avg_cost) {
       weeklyCost = frequency * avg_cost;
-      console.log("weekly cost: ", weeklyCost);
       // const weeks_per_month = 52;
-      // console.log("weeks", weeks_per_month);
       monthlyCost = weeklyCost * 4.3;
-      console.log("monthly cost: ", monthlyCost);
       yearlyCost = monthlyCost * 12;
-      console.log("yearly cost:", yearlyCost);
     }
     // Calculations
     //Static Values by client
     const sp500HistoricalReturn = 10.67;
-    const tenYearTreasuryReturn = 5.60;
+    const tenYearTreasuryReturn = 5.6;
     function calculateFutureValue(rate, nper, pmt, pv, type) {
       rate = rate / 100; // Convert rate to decimal
-      let futureValue = pv * Math.pow(1 + rate, nper) + pmt * ((Math.pow(1 + rate, nper) - 1) / rate) * (1 + rate * type);
+      let futureValue =
+        pv * Math.pow(1 + rate, nper) +
+        pmt * ((Math.pow(1 + rate, nper) - 1) / rate) * (1 + rate * type);
       return futureValue;
     }
     const nper = yearsBeforeRetirement;
@@ -192,20 +197,31 @@ exports.spendingHabit = async (req, res) => {
     const type = 0; // 0 for payments made at the end of each period
     // Future value calculations
     const futureValueOfHabit = calculateFutureValue(rate, nper, pmt, pv, type);
-    console.log("Future Value of Spending Habit:", futureValueOfHabit);
     // Think True Cost (TTC) / Lost Opportunity Cost (LOC) calculations
     const TTCSavingReturn = futureValueOfHabit;
-    const TTCSavingSP500Return = calculateFutureValue(sp500HistoricalReturn, nper, pmt, pv, type);
-    const TTCSaving10YrTreasurReturn = calculateFutureValue(tenYearTreasuryReturn, nper, pmt, pv, type);
+    const TTCSavingSP500Return = calculateFutureValue(
+      sp500HistoricalReturn,
+      nper,
+      pmt,
+      pv,
+      type
+    );
+    const TTCSaving10YrTreasurReturn = calculateFutureValue(
+      tenYearTreasuryReturn,
+      nper,
+      pmt,
+      pv,
+      type
+    );
     //Final calculation values for Graph....
-    const TTCSavings = TTCSavingReturn
-    const TCA = yearlyCost * yearsBeforeRetirement
+    const TTCSavings = TTCSavingReturn;
+    const TCA = yearlyCost * yearsBeforeRetirement;
     // Calculate total interest
     const P = yearlyCost;
     const time = yearsBeforeRetirement;
     const Amount = P * Math.pow(1 + annualReturnPercentage, time); // Final amount after compound interest
     // const TotalInterest = Amount - (P * time); // Subtract total contributions
-    const TotalInterest = TTCSavings - TCA
+    const TotalInterest = TTCSavings - TCA;
     // Save data to DB
     const calculated_data = new spendingHabitModel({
       userId: req.user.id,
@@ -229,28 +245,44 @@ exports.spendingHabit = async (req, res) => {
       TotalInterest: TotalInterest.toFixed(2),
     });
     //graph values......
-    const total_interest = calculated_data.TotalInterest
-    const totalYears = calculated_data.yearsBeforeRetirement
+    const total_interest = calculated_data.TotalInterest;
+    const totalYears = calculated_data.yearsBeforeRetirement;
     const intervals = [];
     for (let i = 0; i <= totalYears; i += 5) {
-        intervals.push(i);
+      intervals.push(i);
     }
     const calculateFutureValueForInterval = (principal, rate, time) => {
-        return principal * Math.pow(1 + rate, time);
+      return principal * Math.pow(1 + rate, time);
     };
-    const data = intervals.map(interval => {
-        return {
-            year: interval,
-            annualReturn: calculateFutureValueForInterval(total_interest, annualReturnPercentage, interval).toFixed(0),
-            sp500HistoricalReturn: calculateFutureValueForInterval(total_interest, sp500HistoricalReturn, interval),
-            tenYearTreasuryReturn: calculateFutureValueForInterval(total_interest, tenYearTreasuryReturn, interval)
-        };
+    const data = intervals.map((interval) => {
+      return {
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(
+          total_interest,
+          annualReturnPercentage,
+          interval
+        ).toFixed(0),
+        sp500HistoricalReturn: calculateFutureValueForInterval(
+          total_interest,
+          sp500HistoricalReturn,
+          interval
+        ),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(
+          total_interest,
+          tenYearTreasuryReturn,
+          interval
+        ),
+      };
     });
-    console.log(JSON.stringify(data, null, 2));
     await calculated_data.save();
-    return res.status(201).json({ message: "Spending Habit calculation is created and recorded", calculated_data });
+    return res
+      .status(201)
+      .json({
+        message: "Spending Habit calculation is created and recorded",
+        calculated_data,
+        projectionData: data,
+      });
   } catch (err) {
-    console.error("Error in Spending Habit process:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 };
