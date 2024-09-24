@@ -92,10 +92,10 @@ const GoogleLoginOrSignup = async (req, res, next) => {
         googleId: sub,
         userType: "google",
       });
-      await newUser.save();
+      const savedUser = await newUser.save();
       const token = Jwt.sign(
         {
-          userId: newUser._id,
+          userId: savedUser._id,
         },
         process.env.JWT_SEC,
         {
