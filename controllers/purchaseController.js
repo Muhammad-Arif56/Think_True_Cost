@@ -310,23 +310,39 @@ exports.getAllPurchases = async (req, res) => {
 exports.updatePurchase = async function (req, res) {
   try {
     const purchaseId = req.params.id;
-    const { item_name, amount, age, retirement_age, investment } = req.body;
-    //checking PURCHASE existing
+
+    // Checking if the purchase exists
     const purchase = await purchaseModel.findById(purchaseId);
     if (!purchase) {
       return res.status(404).json({ error: "Purchase not found" });
     }
-    let updatedFields = req.body;
+
+    // Destructure fields from the request body
+    const { item_name, amount, age, retirement_age, investment } = req.body;
+
+    // Construct an object to update only the provided fields
+    let updatedFields = {};
+    if (item_name !== undefined) updatedFields.item_name = item_name;
+    if (amount !== undefined) updatedFields.amount = amount;
+    if (age !== undefined) updatedFields.age = age;
+    if (retirement_age !== undefined) updatedFields.retirement_age = retirement_age;
+    if (investment !== undefined) updatedFields.investment = investment;
+
+    // Updating the document in the database
     const updatedPurchase = await purchaseModel.findByIdAndUpdate(
       purchaseId,
-      // { item_name, amount, age, retirement_age, investment },
-      updatedFields,
-      { new: true }
+      { $set: updatedFields },
+      { new: true } // Return the updated document
     );
-    return res
-      .status(200)
-      .json({ message: "Purchase entries updated", updatedPurchase });
+
+    // Respond with the updated purchase
+    return res.status(200).json({
+      message: "Purchase entries updated successfully",
+      updatedPurchase,
+    });
   } catch (err) {
+    // Catching and returning any errors
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+

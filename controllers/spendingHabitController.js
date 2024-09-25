@@ -328,27 +328,40 @@ exports.getAllSpendingHabits = async (req, res) => {
 exports.updateSpendingHabit = async function (req, res) {
   try {
     const spendingId = req.params.id;
-    const { habit, frequency, avg_cost, age, retirement_age, investment } =
-      req.body;
-    //checking PURCHASE existing
+
+    // Checking if the spending habit exists
     const check_spending = await habitModel.findById(spendingId);
     if (!check_spending) {
-      return res
-        .status(404)
-        .json({ error: "Spending habit purchase not found" });
+      return res.status(404).json({ error: "Spending habit not found" });
     }
-    let updatedFields = req.body;
+
+    // Destructuring the request body, taking only fields that are provided
+    const { habit, frequency, avg_cost, age, retirement_age, investment } = req.body;
+
+    // Construct an object for fields that are being updated
+    let updatedFields = {};
+    if (habit !== undefined) updatedFields.habit = habit;
+    if (frequency !== undefined) updatedFields.frequency = frequency;
+    if (avg_cost !== undefined) updatedFields.avg_cost = avg_cost;
+    if (age !== undefined) updatedFields.age = age;
+    if (retirement_age !== undefined) updatedFields.retirement_age = retirement_age;
+    if (investment !== undefined) updatedFields.investment = investment;
+
+    // Updating the document in the database
     const updatedSpendingHabit = await habitModel.findByIdAndUpdate(
       spendingId,
-      // { habit, frequency, avg_cost, age, retirement_age, investment } ,
       { $set: updatedFields },
       { new: true }
     );
+
+    // Return the updated spending habit
     return res.status(200).json({
-      message: "Spending Habit Purchase entries updated",
+      message: "Spending habit updated successfully",
       updatedSpendingHabit,
     });
   } catch (err) {
+    // Catching and returning any errors
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
