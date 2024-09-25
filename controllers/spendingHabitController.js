@@ -325,43 +325,164 @@ exports.getAllSpendingHabits = async (req, res) => {
 };
 
 //updating spending habit purchase
-exports.updateSpendingHabit = async function (req, res) {
+exports.updateSpendingHabit = async (req, res) => {
   try {
-    const spendingId = req.params.id;
+    const {
+      habit,
+      frequency,
+      avg_cost,
+      currentAge,
+      retirementAge,
+      annualReturn,
+    } = req.body;
 
-    // Checking if the spending habit exists
-    const check_spending = await habitModel.findById(spendingId);
-    if (!check_spending) {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Find the spending habit by ID
+    const spendingHabit = await spendingHabitModel.findOne({ userId: req.user.id });
+    if (!spendingHabit) {
       return res.status(404).json({ error: "Spending habit not found" });
     }
 
-    // Destructuring the request body, taking only fields that are provided
-    const { habit, frequency, avg_cost, age, retirement_age, investment } = req.body;
+    // Update values
+    spendingHabit.habit = habit || spendingHabit.habit;
+    spendingHabit.frequency = frequency || spendingHabit.frequency;
+    spendingHabit.avg_cost = avg_cost || spendingHabit.avg_cost;
+    spendingHabit.currentAge = currentAge || spendingHabit.currentAge;
+    spendingHabit.retirementAge = retirementAge || spendingHabit.retirementAge;
 
-    // Construct an object for fields that are being updated
-    let updatedFields = {};
-    if (habit !== undefined) updatedFields.habit = habit;
-    if (frequency !== undefined) updatedFields.frequency = frequency;
-    if (avg_cost !== undefined) updatedFields.avg_cost = avg_cost;
-    if (age !== undefined) updatedFields.age = age;
-    if (retirement_age !== undefined) updatedFields.retirement_age = retirement_age;
-    if (investment !== undefined) updatedFields.investment = investment;
+    // Calculations
+    const yearsBeforeRetirement = spendingHabit.retirementAge - spendingHabit.currentAge;
 
-    // Updating the document in the database
-    const updatedSpendingHabit = await habitModel.findByIdAndUpdate(
-      spendingId,
-      { $set: updatedFields },
-      { new: true }
+    // Default value for annual return if not provided
+    let newroi = annualReturn || spendingHabit.annualReturn || 4; // Default to 4 if not provided
+    const annualReturnPercentage = newroi;
+
+    // Calculate costs
+    let weeklyCost = 0;
+    let monthlyCost = 0;
+    let yearlyCost = 0;
+    if (spendingHabit.frequency && spendingHabit.avg_cost) {
+      weeklyCost = spendingHabit.frequency * spendingHabit.avg_cost;
+      monthlyCost = weeklyCost * 4.3;
+      yearlyCost = monthlyCost * 12;
+    }
+
+    // Static values by client
+    const sp500HistoricalReturn = 10.67;
+    const tenYearTreasuryReturn = 5.6;
+
+    // Function to calculate future value
+    function calculateFutureValue(rate, nper, pmt, pv, type) {
+      rate = rate / 100; // Convert rate to decimal
+      let futureValue =
+        pv * Math.pow(1 + rate, nper) +
+        pmt * ((Math.pow(1 + rate, nper) - 1) / rate) * (1 + rate * type);
+      return futureValue;
+    }
+
+    // Future value calculations
+    const nper = yearsBeforeRetirement;
+    const rate = annualReturnPercentage;
+    const pmt = yearlyCost;
+    const pv = 0;
+    const type = 0; // 0 for payments made at the end of each period
+
+    const futureValueOfHabit = calculateFutureValue(rate, nper, pmt, pv, type);
+
+    // Think True Cost (TTC) / Lost Opportunity Cost (LOC) calculations
+    const TTCSavingReturn = futureValueOfHabit;
+    const TTCSavingSP500Return = calculateFutureValue(
+      sp500HistoricalReturn,
+      nper,
+      pmt,
+      pv,
+      type
+    );
+    const TTCSaving10YrTreasurReturn = calculateFutureValue(
+      tenYearTreasuryReturn,
+      nper,
+      pmt,
+      pv,
+      type
     );
 
-    // Return the updated spending habit
+    // Final calculation values for graph
+    const TTCSavings = TTCSavingReturn;
+    const TCA = yearlyCost * yearsBeforeRetirement;
+
+    // Calculate total interest
+    const TotalInterest = TTCSavings - TCA;
+
+    // Update values in the model
+    spendingHabit.yearsBeforeRetirement = yearsBeforeRetirement;
+    spendingHabit.weeklyCost = weeklyCost.toFixed(2);
+    spendingHabit.monthlyCost = monthlyCost.toFixed(2);
+    spendingHabit.yearlyCost = yearlyCost.toFixed(2);
+    spendingHabit.annualReturn = annualReturnPercentage;
+    spendingHabit.sp500HistoricalReturn = sp500HistoricalReturn;
+    spendingHabit.tenYearTreasuryReturn = tenYearTreasuryReturn;
+    spendingHabit.TTCSavingReturn = TTCSavingReturn.toFixed(0);
+    spendingHabit.TTCSavingSP500Return = TTCSavingSP500Return.toFixed();
+    spendingHabit.TTCSaving10YrTreasurReturn = TTCSaving10YrTreasurReturn.toFixed();
+    spendingHabit.TTCSavings = TTCSavings.toFixed(2);
+    spendingHabit.TCA = TCA.toFixed(2);
+    spendingHabit.TotalInterest = TotalInterest.toFixed(2);
+
+    // Graph values logic
+    const totalYears = yearsBeforeRetirement;
+
+    // Generate intervals dynamically based on the number of years with a difference of 5 years
+    const intervals = [];
+    for (let i = 0; i <= totalYears; i += 5) {
+      intervals.push(i);
+    }
+
+    // Function to calculate future value for each interval
+    const calculateFutureValueForInterval = (principal, rate, time) => {
+      rate = rate / 100; // Convert percentage to decimal
+      return principal * Math.pow(1 + rate, time);
+    };
+
+    // Prepare data for graph with future value projections at each interval
+    const data = intervals.map((interval) => {
+      return {
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(
+          yearlyCost, // Use yearly cost as principal
+          annualReturnPercentage,
+          interval
+        ),
+        sp500HistoricalReturn: calculateFutureValueForInterval(
+          yearlyCost, // Use yearly cost as principal
+          sp500HistoricalReturn,
+          interval
+        ),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(
+          yearlyCost, // Use yearly cost as principal
+          tenYearTreasuryReturn,
+          interval
+        ),
+      };
+    });
+
+    // Save updated data
+    await spendingHabit.save();
+
     return res.status(200).json({
       message: "Spending habit updated successfully",
-      updatedSpendingHabit,
+      updated_data: spendingHabit,
+      projectionData: data,
     });
   } catch (err) {
-    // Catching and returning any errors
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+
+
 

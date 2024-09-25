@@ -307,42 +307,141 @@ exports.getAllPurchases = async (req, res) => {
 };
 
 //updating purchase form
-exports.updatePurchase = async function (req, res) {
+exports.updatePurchase = async (req, res) => {
   try {
-    const purchaseId = req.params.id;
+    const {
+      item_name,
+      purchaseAmount,
+      currentAge,
+      retirementAge,
+      annualReturn,
+    } = req.body;
 
-    // Checking if the purchase exists
-    const purchase = await purchaseModel.findById(purchaseId);
+    // Check if the purchase entry exists
+    const purchase = await purchaseModel.findById(req.params.id);
     if (!purchase) {
       return res.status(404).json({ error: "Purchase not found" });
     }
 
-    // Destructure fields from the request body
-    const { item_name, amount, age, retirement_age, investment } = req.body;
+    // Check if user exists
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    // Construct an object to update only the provided fields
-    let updatedFields = {};
-    if (item_name !== undefined) updatedFields.item_name = item_name;
-    if (amount !== undefined) updatedFields.amount = amount;
-    if (age !== undefined) updatedFields.age = age;
-    if (retirement_age !== undefined) updatedFields.retirement_age = retirement_age;
-    if (investment !== undefined) updatedFields.investment = investment;
+    // Calculations
+    const yearsBeforeRetirement = retirementAge - currentAge;
+    const newroi = annualReturn || 4; // default to 4 if annualReturn is falsy
+    const annualReturnPercentage = newroi;
 
-    // Updating the document in the database
-    const updatedPurchase = await purchaseModel.findByIdAndUpdate(
-      purchaseId,
-      { $set: updatedFields },
-      { new: true } // Return the updated document
+    // Historical returns
+    const sp500HistoricalReturn = 10.67;
+    const tenYearTreasuryReturn = 5.6;
+
+    // Future value calculation function
+    function calculateFutureValue(rate, years, payment, presentValue, type) {
+      rate = rate / 100; // Convert rate to decimal
+      let futureValue = presentValue * Math.pow(1 + rate, years);
+      futureValue +=
+        payment * ((Math.pow(1 + rate, years) - 1) / rate) * (1 + rate * type);
+      return Math.round(futureValue * 100) / 100;
+    }
+
+    // Calculate Future Value for the provided annual return
+    const futureValue = calculateFutureValue(
+      annualReturnPercentage,
+      yearsBeforeRetirement,
+      0,
+      purchaseAmount,
+      0
     );
 
-    // Respond with the updated purchase
+    // Lost Opportunity Cost (LOC) calculations
+    const TTCSavingReturn = futureValue;
+    const TTCSavingSP500Return = calculateFutureValue(
+      sp500HistoricalReturn,
+      yearsBeforeRetirement,
+      0,
+      purchaseAmount,
+      0
+    );
+    const TTCSaving10YrTreasurReturn = calculateFutureValue(
+      tenYearTreasuryReturn,
+      yearsBeforeRetirement,
+      0,
+      purchaseAmount,
+      0
+    );
+
+    // Final calculation values for graph
+    const TTCSavings = TTCSavingReturn;
+    const TCA = purchaseAmount;
+    const TotalInterest = TTCSavings - TCA;
+
+    // Update the purchase data in the DB
+    purchase.item_name = item_name || purchase.item_name;
+    purchase.purchaseAmount = purchaseAmount || purchase.purchaseAmount;
+    purchase.currentAge = currentAge || purchase.currentAge;
+    purchase.retirementAge = retirementAge || purchase.retirementAge;
+    purchase.yearsBeforeRetirement = yearsBeforeRetirement;
+    purchase.annualReturn = annualReturnPercentage;
+    purchase.sp500HistoricalReturn = sp500HistoricalReturn;
+    purchase.tenYearTreasuryReturn = tenYearTreasuryReturn;
+    purchase.TTCSavingReturn = TTCSavingReturn.toFixed();
+    purchase.TTCSavingSP500Return = TTCSavingSP500Return.toFixed();
+    purchase.TTCSaving10YrTreasurReturn = TTCSaving10YrTreasurReturn.toFixed();
+    purchase.TTCSavings = TTCSavings.toFixed();
+    purchase.TCA = TCA.toFixed();
+    purchase.TotalInterest = TotalInterest.toFixed();
+
+    await purchase.save();
+
+    // Graph values logic
+    const totalYears = yearsBeforeRetirement;
+
+    // Generate intervals dynamically based on the number of years with a difference of 5 years
+    const intervals = [];
+    for (let i = 0; i <= totalYears; i += 5) {
+      intervals.push(i);
+    }
+
+    // Function to calculate future value for each interval
+    const calculateFutureValueForInterval = (principal, rate, time) => {
+      rate = rate / 100; // Convert percentage to decimal
+      return principal * Math.pow(1 + rate, time);
+    };
+
+    // Prepare data for graph with future value projections at each interval
+    const data = intervals.map((interval) => {
+      return {
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          annualReturnPercentage,
+          interval
+        ),
+        sp500HistoricalReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          sp500HistoricalReturn,
+          interval
+        ),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          tenYearTreasuryReturn,
+          interval
+        ),
+      };
+    });
+
     return res.status(200).json({
-      message: "Purchase entries updated successfully",
-      updatedPurchase,
+      message: "One Time Purchase updated successfully",
+      purchase,
+      projectionData: data,
     });
   } catch (err) {
-    // Catching and returning any errors
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
 
