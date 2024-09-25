@@ -252,35 +252,36 @@ exports.oneTimePurchase = async (req, res) => {
       intervals.push(i);
     }
     const calculateFutureValueForInterval = (principal, rate, time) => {
+      rate = rate / 100; // Convert percentage to decimal
       return principal * Math.pow(1 + rate, time);
     };
+
     const data = intervals.map((interval) => {
       return {
         year: interval,
         annualReturn: calculateFutureValueForInterval(
-          total_interest,
+          purchaseAmount, // Use purchaseAmount as principal
           annualReturnPercentage,
           interval
         ),
         sp500HistoricalReturn: calculateFutureValueForInterval(
-          total_interest,
+          purchaseAmount, // Use purchaseAmount as principal
           sp500HistoricalReturn,
           interval
         ),
         tenYearTreasuryReturn: calculateFutureValueForInterval(
-          total_interest,
+          purchaseAmount, // Use purchaseAmount as principal
           tenYearTreasuryReturn,
           interval
         ),
       };
     });
-    return res
-      .status(201)
-      .json({
-        message: "One Time Purchase is calculated and recorded",
-        purchase_calculations,
-        projectionData: data,
-      });
+
+    return res.status(201).json({
+      message: "One Time Purchase is calculated and recorded",
+      purchase_calculations,
+      projectionData: data,
+    });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
