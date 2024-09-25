@@ -164,25 +164,29 @@ exports.spendingHabit = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+
     // Calculations
     const yearsBeforeRetirement = retirementAge - currentAge;
-    //by default value
+
+    // Default value for annual return if not provided
     let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
     const annualReturnPercentage = newroi;
+
     // Calculate costs
     let weeklyCost = 0;
     let monthlyCost = 0;
     let yearlyCost = 0;
     if (frequency && avg_cost) {
       weeklyCost = frequency * avg_cost;
-      // const weeks_per_month = 52;
       monthlyCost = weeklyCost * 4.3;
       yearlyCost = monthlyCost * 12;
     }
-    // Calculations
-    //Static Values by client
+
+    // Static values by client
     const sp500HistoricalReturn = 10.67;
     const tenYearTreasuryReturn = 5.6;
+
+    // Function to calculate future value
     function calculateFutureValue(rate, nper, pmt, pv, type) {
       rate = rate / 100; // Convert rate to decimal
       let futureValue =
@@ -190,13 +194,16 @@ exports.spendingHabit = async (req, res) => {
         pmt * ((Math.pow(1 + rate, nper) - 1) / rate) * (1 + rate * type);
       return futureValue;
     }
+
+    // Future value calculations
     const nper = yearsBeforeRetirement;
     const rate = annualReturnPercentage;
     const pmt = yearlyCost;
     const pv = 0;
     const type = 0; // 0 for payments made at the end of each period
-    // Future value calculations
+
     const futureValueOfHabit = calculateFutureValue(rate, nper, pmt, pv, type);
+
     // Think True Cost (TTC) / Lost Opportunity Cost (LOC) calculations
     const TTCSavingReturn = futureValueOfHabit;
     const TTCSavingSP500Return = calculateFutureValue(
@@ -213,15 +220,14 @@ exports.spendingHabit = async (req, res) => {
       pv,
       type
     );
-    //Final calculation values for Graph....
+
+    // Final calculation values for graph
     const TTCSavings = TTCSavingReturn;
     const TCA = yearlyCost * yearsBeforeRetirement;
+
     // Calculate total interest
-    const P = yearlyCost;
-    const time = yearsBeforeRetirement;
-    const Amount = P * Math.pow(1 + annualReturnPercentage, time); // Final amount after compound interest
-    // const TotalInterest = Amount - (P * time); // Subtract total contributions
     const TotalInterest = TTCSavings - TCA;
+
     // Save data to DB
     const calculated_data = new spendingHabitModel({
       userId: req.user.id,
@@ -244,48 +250,56 @@ exports.spendingHabit = async (req, res) => {
       TCA: TCA.toFixed(2),
       TotalInterest: TotalInterest.toFixed(2),
     });
-    //graph values......
-    const total_interest = calculated_data.TotalInterest;
-    const totalYears = calculated_data.yearsBeforeRetirement;
+
+    // Graph values logic
+    const totalYears = yearsBeforeRetirement;
+
+    // Generate intervals dynamically based on the number of years with a difference of 5 years
     const intervals = [];
     for (let i = 0; i <= totalYears; i += 5) {
       intervals.push(i);
     }
+
+    // Function to calculate future value for each interval
     const calculateFutureValueForInterval = (principal, rate, time) => {
+      rate = rate / 100; // Convert percentage to decimal
       return principal * Math.pow(1 + rate, time);
     };
+
+    // Prepare data for graph with future value projections at each interval
     const data = intervals.map((interval) => {
       return {
         year: interval,
         annualReturn: calculateFutureValueForInterval(
-          total_interest,
+          yearlyCost, // Use yearly cost as principal
           annualReturnPercentage,
           interval
-        ).toFixed(0),
+        ),
         sp500HistoricalReturn: calculateFutureValueForInterval(
-          total_interest,
+          yearlyCost, // Use yearly cost as principal
           sp500HistoricalReturn,
           interval
         ),
         tenYearTreasuryReturn: calculateFutureValueForInterval(
-          total_interest,
+          yearlyCost, // Use yearly cost as principal
           tenYearTreasuryReturn,
           interval
         ),
       };
     });
+
     await calculated_data.save();
-    return res
-      .status(201)
-      .json({
-        message: "Spending Habit calculation is created and recorded",
-        calculated_data,
-        projectionData: data,
-      });
+
+    return res.status(201).json({
+      message: "Spending Habit calculation is created and recorded",
+      calculated_data,
+      projectionData: data,
+    });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 //___________________   Get all Spending Habits list   _______________________
 
