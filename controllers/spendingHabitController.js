@@ -305,24 +305,73 @@ exports.spendingHabit = async (req, res) => {
 
 exports.getAllSpendingHabits = async (req, res) => {
   try {
-    // const purchaseId = req.params.purchaseId
+    // Check if the user exists
     const userCheck = await User.findById(req.user.id);
     if (!userCheck) {
-      return res.status(404).json({ error: "No user found by this id" });
+      return res.status(404).json({ error: "No user found by this ID" });
     }
+
+    // Retrieve all spending habits for the user
     const all_purchases = await spendingHabitModel.find({
       userId: req.user.id,
     });
-    if (!all_purchases) {
-      return res.status(404).json({ error: "No purchase found by this id" });
+
+    // Check if no spending habits were found
+    if (all_purchases.length === 0) {
+      return res.status(404).json({ error: "No spending habits found for this user" });
     }
-    return res
-      .status(200)
-      .json({ message: "All Spending habits : ", all_purchases });
+
+    // Prepare a response with the spending habits and their projection data
+    const spendingHabitsWithProjections = all_purchases.map((habit) => {
+      const {
+        currentAge,
+        retirementAge,
+        yearlyCost,
+        annualReturn,
+        sp500HistoricalReturn,
+        tenYearTreasuryReturn,
+      } = habit;
+
+      const yearsBeforeRetirement = retirementAge - currentAge;
+      const totalYears = yearsBeforeRetirement;
+      const annualReturnPercentage = annualReturn;
+
+      // Generate intervals dynamically based on the number of years with a difference of 5 years
+      const intervals = [];
+      for (let i = 0; i <= totalYears; i += 5) {
+        intervals.push(i);
+      }
+
+      // Function to calculate future value for each interval
+      const calculateFutureValueForInterval = (principal, rate, time) => {
+        rate = rate / 100; // Convert percentage to decimal
+        return principal * Math.pow(1 + rate, time);
+      };
+
+      // Prepare data for graph with future value projections at each interval
+      const projectionData = intervals.map((interval) => ({
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(yearlyCost, annualReturnPercentage, interval),
+        sp500HistoricalReturn: calculateFutureValueForInterval(yearlyCost, sp500HistoricalReturn, interval),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(yearlyCost, tenYearTreasuryReturn, interval),
+      }));
+
+      return {
+        ...habit._doc,  // Spread to include the habit's original data
+        projectionData,
+      };
+    });
+
+    // Return the spending habits along with their projection data
+    return res.status(200).json({
+      message: "All Spending Habits with Projections:",
+      spendingHabits: spendingHabitsWithProjections,
+    });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 //updating spending habit purchase
 exports.updateSpendingHabit = async (req, res) => {
