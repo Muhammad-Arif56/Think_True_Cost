@@ -291,20 +291,73 @@ exports.oneTimePurchase = async (req, res) => {
 
 exports.getAllPurchases = async (req, res) => {
   try {
-    // const purchaseId = req.params.purchaseId
     const userCheck = await User.findById(req.user.id);
     if (!userCheck) {
       return res.status(404).json({ error: "No user found by this id" });
     }
+
     const all_purchases = await purchaseModel.find({ userId: req.user.id });
-    if (!all_purchases) {
-      return res.status(404).json({ error: "No purchase found by this id" });
+    if (!all_purchases || all_purchases.length === 0) {
+      return res.status(404).json({ error: "No purchase found for this user" });
     }
-    return res.status(200).json({ message: "All purchases : ", all_purchases });
+
+    // Function to calculate future value at intervals
+    const calculateFutureValueForInterval = (principal, rate, time) => {
+      rate = rate / 100; // Convert percentage to decimal
+      return principal * Math.pow(1 + rate, time);
+    };
+
+    // Loop through each purchase and calculate the projection data
+    const allPurchasesWithProjections = all_purchases.map((purchase) => {
+      const {
+        purchaseAmount,
+        annualReturn,
+        sp500HistoricalReturn,
+        tenYearTreasuryReturn,
+        yearsBeforeRetirement
+      } = purchase;
+
+      // Generate intervals dynamically based on the number of years with a difference of 5 years
+      const intervals = [];
+      for (let i = 0; i <= yearsBeforeRetirement; i += 5) {
+        intervals.push(i);
+      }
+
+      // Generate projection data for each interval
+      const projectionData = intervals.map((interval) => ({
+        year: interval,
+        annualReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          annualReturn,
+          interval
+        ),
+        sp500HistoricalReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          sp500HistoricalReturn,
+          interval
+        ),
+        tenYearTreasuryReturn: calculateFutureValueForInterval(
+          purchaseAmount, // Use purchaseAmount as principal
+          tenYearTreasuryReturn,
+          interval
+        ),
+      }));
+
+      return {
+        purchase,
+        projectionData, // Include projection data
+      };
+    });
+
+    return res.status(200).json({
+      message: "All purchases with projections",
+      purchases: allPurchasesWithProjections,
+    });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 //updating purchase form
 exports.updatePurchase = async (req, res) => {
