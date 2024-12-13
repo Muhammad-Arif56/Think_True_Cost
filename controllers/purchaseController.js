@@ -173,7 +173,7 @@ exports.oneTimePurchase = async (req, res) => {
     // Calculations
     const yearsBeforeRetirement = retirementAge - currentAge;
     //by default value
-    let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
+    let newroi = annualReturn || 7; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
     const annualReturnPercentage = newroi;
     // Historical returns
     const sp500HistoricalReturn = 10.67;

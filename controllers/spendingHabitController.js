@@ -169,7 +169,7 @@ exports.spendingHabit = async (req, res) => {
     const yearsBeforeRetirement = retirementAge - currentAge;
 
     // Default value for annual return if not provided
-    let newroi = annualReturn || 4; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
+    let newroi = annualReturn || 7; // default to 4 if annualReturn is falsy (undefined, 0, etc.)
     const annualReturnPercentage = newroi;
 
     // Calculate costs
