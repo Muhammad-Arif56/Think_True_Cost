@@ -286,9 +286,7 @@ exports.oneTimePurchase = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 //___________________      Get all purchase list    _______________________
-
 exports.getAllPurchases = async (req, res) => {
   try {
     // const purchaseId = req.params.purchaseId
@@ -305,7 +303,6 @@ exports.getAllPurchases = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
 //updating purchase form
 exports.updatePurchase = async (req, res) => {
   try {
@@ -442,6 +439,3 @@ exports.updatePurchase = async (req, res) => {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
-
-
-
