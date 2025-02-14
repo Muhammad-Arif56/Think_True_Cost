@@ -199,32 +199,7 @@ exports.spendingHabit = async (req, res) => {
     const TTCSavings = TTCSavingReturn;
     const TCA = yearlyCost * yearsBeforeRetirement;
     const TotalInterest = TTCSavings - TCA;
-
-    // Save data to DB
-    const calculated_data = new spendingHabitModel({
-      userId: req.user.id,
-      habit,
-      frequency,
-      avg_cost,
-      currentAge,
-      retirementAge,
-      yearsBeforeRetirement,
-      weeklyCost: weeklyCost.toFixed(2),
-      monthlyCost: monthlyCost.toFixed(2),
-      yearlyCost: yearlyCost.toFixed(2),
-      annualReturn: annualReturnPercentage,
-      sp500HistoricalReturn,
-      tenYearTreasuryReturn,
-      TTCSavingReturn: TTCSavingReturn.toFixed(2),
-      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(2),
-      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(2),
-      TTCSavings: TTCSavings.toFixed(2),
-      TCA: TCA.toFixed(2),
-      TotalInterest: TotalInterest.toFixed(2),
-    });
-
-    // Dynamic projection until TTCSavingReturn is reached
-    const projectionData = [];
+    let projectionData = [];
     let totalSavings = 0;
     let year = 0;
 
@@ -241,13 +216,40 @@ exports.spendingHabit = async (req, res) => {
 
       year += 5; // Adjust interval dynamically
     }
+    projectionData.pop();
+    // Save data to DB
+    const calculated_data = new spendingHabitModel({
+      userId: req.user.id,
+      habit,
+      frequency,
+      avg_cost,
+      currentAge,
+      retirementAge,
+      yearsBeforeRetirement,
+      weeklyCost: weeklyCost.toFixed(2),
+      monthlyCost: monthlyCost.toFixed(2),
+      yearlyCost: yearlyCost.toFixed(2),
+      annualReturn: annualReturnPercentage,
+      sp500HistoricalReturn,
+      tenYearTreasuryReturn,
+      projectionData,
+      TTCSavingReturn: TTCSavingReturn.toFixed(2),
+      TTCSavingSP500Return: TTCSavingSP500Return.toFixed(2),
+      TTCSaving10YrTreasurReturn: TTCSaving10YrTreasurReturn.toFixed(2),
+      TTCSavings: TTCSavings.toFixed(2),
+      TCA: TCA.toFixed(2),
+      TotalInterest: TotalInterest.toFixed(2),
+    });
+
+    // Dynamic projection until TTCSavingReturn is reached
+
 
     await calculated_data.save();
 
     return res.status(201).json({
       message: "Spending Habit calculation is created and recorded",
       calculated_data,
-      projectionData,
+      // projectionData,
     });
 
   } catch (err) {
@@ -307,7 +309,7 @@ exports.updateSpendingHabit = async (req, res) => {
     spendingHabit.retirementAge = retirementAge || spendingHabit.retirementAge;
 
     const yearsBeforeRetirement = spendingHabit.retirementAge - spendingHabit.currentAge;
-    let newroi = annualReturn || spendingHabit.annualReturn || 7; // Default to 7%
+    let newroi = annualReturn || spendingHabit.annualReturn || 7;
     const annualReturnPercentage = newroi;
 
     // Calculate costs
@@ -336,22 +338,7 @@ exports.updateSpendingHabit = async (req, res) => {
     const TTCSavings = TTCSavingReturn;
     const TCA = yearlyCost * yearsBeforeRetirement;
     const TotalInterest = TTCSavings - TCA;
-
-    // Update document
-    spendingHabit.yearsBeforeRetirement = yearsBeforeRetirement;
-    spendingHabit.weeklyCost = weeklyCost.toFixed(2);
-    spendingHabit.monthlyCost = monthlyCost.toFixed(2);
-    spendingHabit.yearlyCost = yearlyCost.toFixed(2);
-    spendingHabit.annualReturn = annualReturnPercentage;
-    spendingHabit.sp500HistoricalReturn = sp500HistoricalReturn;
-    spendingHabit.tenYearTreasuryReturn = tenYearTreasuryReturn;
-    spendingHabit.TTCSavingReturn = TTCSavingReturn.toFixed(2);
-    spendingHabit.TTCSavingSP500Return = TTCSavingSP500Return.toFixed(2);
-    spendingHabit.TTCSaving10YrTreasurReturn = TTCSaving10YrTreasurReturn.toFixed(2);
-    spendingHabit.TTCSavings = TTCSavings.toFixed(2);
-    spendingHabit.TCA = TCA.toFixed(2);
-    spendingHabit.TotalInterest = TotalInterest.toFixed(2);
-    const projectionData = [];
+    let projectionData = [];
     let totalSavings = 0;
     let year = 0;
     while (totalSavings < TTCSavingReturn) {
@@ -365,19 +352,29 @@ exports.updateSpendingHabit = async (req, res) => {
       });
       year += 5;
     }
+    projectionData.pop();
+    // Update document
+    spendingHabit.yearsBeforeRetirement = yearsBeforeRetirement;
+    spendingHabit.weeklyCost = weeklyCost.toFixed(2);
+    spendingHabit.monthlyCost = monthlyCost.toFixed(2);
+    spendingHabit.yearlyCost = yearlyCost.toFixed(2);
+    spendingHabit.annualReturn = annualReturnPercentage.toFixed(2);
+    spendingHabit.sp500HistoricalReturn = sp500HistoricalReturn;
+    spendingHabit.tenYearTreasuryReturn = tenYearTreasuryReturn;
+    spendingHabit.TTCSavingReturn = TTCSavingReturn.toFixed(2);
+    spendingHabit.TTCSavingSP500Return = TTCSavingSP500Return.toFixed(2);
+    spendingHabit.TTCSaving10YrTreasurReturn = TTCSaving10YrTreasurReturn.toFixed(2);
+    spendingHabit.TTCSavings = TTCSavings.toFixed(2);
+    spendingHabit.TCA = TCA.toFixed(2);
+    spendingHabit.TotalInterest = TotalInterest.toFixed(2);
+    spendingHabit.projectionData = projectionData
     await spendingHabit.save();
     return res.status(200).json({
       message: "Spending habit updated successfully",
       updated_data: spendingHabit,
-      projectionData,
+
     });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error", details: err.message });
   }
 };
-
-
-
-
-
-
