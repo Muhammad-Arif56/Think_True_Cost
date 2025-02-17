@@ -260,24 +260,27 @@ exports.spendingHabit = async (req, res) => {
 
 exports.getAllSpendingHabits = async (req, res) => {
   try {
-    // const purchaseId = req.params.purchaseId
     const userCheck = await User.findById(req.user.id);
     if (!userCheck) {
       return res.status(404).json({ error: "No user found by this id" });
     }
-    const all_purchases = await spendingHabitModel.find({
-      userId: req.user.id,
-    });
-    if (!all_purchases) {
-      return res.status(404).json({ error: "No purchase found by this id" });
+
+    const all_purchases = await spendingHabitModel
+      .find({ userId: req.user.id })
+      .sort({ createdAt: -1 });
+
+    if (!all_purchases.length) {
+      return res.status(404).json({ error: "No purchases found" });
     }
+
     return res
       .status(200)
-      .json({ message: "All Spending habits : ", all_purchases });
+      .json({ message: "All Spending habits:", all_purchases });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 
 //updating spending habit purchase
 exports.updateSpendingHabit = async (req, res) => {

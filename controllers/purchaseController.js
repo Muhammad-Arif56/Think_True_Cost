@@ -289,20 +289,25 @@ exports.oneTimePurchase = async (req, res) => {
 //___________________      Get all purchase list    _______________________
 exports.getAllPurchases = async (req, res) => {
   try {
-    // const purchaseId = req.params.purchaseId
     const userCheck = await User.findById(req.user.id);
     if (!userCheck) {
       return res.status(404).json({ error: "No user found by this id" });
     }
-    const all_purchases = await purchaseModel.find({ userId: req.user.id });
-    if (!all_purchases) {
-      return res.status(404).json({ error: "No purchase found by this id" });
+
+    const all_purchases = await purchaseModel
+      .find({ userId: req.user.id })
+      .sort({ createdAt: -1 });
+
+    if (!all_purchases.length) {
+      return res.status(404).json({ error: "No purchases found" });
     }
-    return res.status(200).json({ message: "All purchases : ", all_purchases });
+
+    return res.status(200).json({ message: "All purchases:", all_purchases });
   } catch (err) {
     return res.status(500).json({ error: "Internal server error" });
   }
 };
+
 //updating purchase form
 exports.updatePurchase = async (req, res) => {
   try {
